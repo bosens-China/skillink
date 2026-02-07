@@ -1,0 +1,56 @@
+{
+  "name": "skillink",
+  "version": "1.0.0",
+  "description": "统一 AI Skills 管理工具 - 像 pnpm 一样链接到各 AI 工具目录",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "skillink": "./dist/bin/skillink.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/bin/skillink.js",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "ai",
+    "skills",
+    "cursor",
+    "gemini",
+    "cli",
+    "sync",
+    "symlink"
+  ],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.18.2",
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "commander": "^14.0.3",
+    "fs-extra": "^11.3.3"
+  },
+  "devDependencies": {
+    "@inquirer/prompts": "^8.2.0",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^25.2.1",
+    "picocolors": "^1.1.1",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
