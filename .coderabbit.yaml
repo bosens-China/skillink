@@ -1,0 +1,84 @@
+# CodeRabbit 配置文件
+# 文档：https://docs.coderabbit.ai/guides/configure-coderabbit
+
+language: zh-CN
+
+reviews:
+  profile: chill
+  
+  auto_reply: true
+  suggest_code_changes: true
+  summarize: true
+  generate_release_notes: true
+  
+  path_filters:
+    - "!node_modules/**"
+    - "!dist/**"
+    - "!.git/**"
+    - "!pnpm-lock.yaml"
+    - "!**/*.d.ts"
+  
+  path_instructions:
+    - path: "src/**/*.ts"
+      instructions: |
+        这是一个 Node.js 20+ CLI 工具项目，请重点审查以下方面：
+        
+        **TypeScript 最佳实践**
+        - 严格类型检查，避免 `any`，优先使用 `unknown`
+        - 使用 `satisfies` 运算符进行类型验证
+        - 合理使用类型推断，避免冗余类型注解
+        - 优先使用 `interface` 定义对象类型，`type` 用于联合/交叉类型
+        - 使用 ECMAScript 私有字段 `#privateField` 替代 `private`
+        - 异步函数优先返回 `Promise<T>` 而非回调
+        
+        **Node.js 20+ 现代语法**
+        - 使用 `node:` 前缀导入所有内置模块（如 `node:fs/promises`）
+        - 使用原生 `fs/promises` 替代回调式 API
+        - 使用 `Promise.withResolvers()` 替代手动创建 Promise
+        - 使用 `Array.prototype.toSorted()`, `toReversed()` 等新方法
+        - 使用 `Object.groupBy()` 或 `Map.groupBy()`（Node 21+）
+        - 使用顶层 await（如果适用）
+        
+        **ESM 规范（项目使用 ESM）**
+        - 所有相对导入必须有 `.js` 扩展名（如 `import { x } from './utils.js'`）
+        - 使用命名导出（named exports）而非默认导出
+        - 避免使用 `__dirname`, `__filename`，使用 `import.meta.url` + `fileURLToPath`
+        
+        **代码质量**
+        - 使用可选链 `?.` 和空值合并 `??` 替代繁琐的空值检查
+        - 使用解构和剩余参数（rest parameters）
+        - 优先使用 `const` 和 `let`，避免 `var`
+        - 字符串拼接优先使用模板字面量
+        - 错误处理使用类型守卫（type guards）而非 `instanceof Error`
+    
+    - path: "package.json"
+      instructions: |
+        检查 package.json 变更：
+        - `"type": "module"` 是否保持（ESM 项目）
+        - `"engines": {"node": ">=20.0.0"}` 是否正确
+        - 依赖是否支持 ESM，避免引入仅 CommonJS 的包
+        - 脚本是否使用现代语法（如使用 `node --watch` 替代 nodemon）
+    
+    - path: "tsconfig.json"
+      instructions: |
+        检查 TypeScript 配置是否现代：
+        - `"target": "ES2022"` 或更高
+        - `"module": "NodeNext"` 且 `"moduleResolution": "NodeNext"`
+        - `"strict": true` 启用所有严格类型检查
+        - `"esModuleInterop": true` 和 `"skipLibCheck": true`
+    
+    - path: "**/*.md"
+      instructions: |
+        检查文档中的代码示例：
+        - 是否使用 Node.js 20+ 语法
+        - ESM 导入是否有 `.js` 扩展名
+        - 是否使用 `node:` 前缀导入
+
+chat:
+  auto_reply: true
+
+ignore:
+  labels:
+    - "ignore-coderabbit"
+    - "draft"
+  draft_prs: true
