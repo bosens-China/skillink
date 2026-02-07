@@ -16,14 +16,14 @@ const CONFIG_VERSION = '1.0.0';
  */
 export function getDefaultConfig(): SkillinkConfig {
   const targets: Record<string, TargetConfig> = {};
-  
+
   for (const target of builtInTargets) {
     targets[target.id] = {
       enabled: true,
       path: target.defaultPath,
     };
   }
-  
+
   return {
     version: CONFIG_VERSION,
     targets,
@@ -37,19 +37,21 @@ export function getDefaultConfig(): SkillinkConfig {
 /**
  * 读取配置
  */
-export async function readConfig(projectRoot: string): Promise<SkillinkConfig | null> {
+export async function readConfig(
+  projectRoot: string,
+): Promise<SkillinkConfig | null> {
   const configPath = getConfigPath(projectRoot);
-  
+
   if (!existsSync(configPath)) {
     return null;
   }
-  
+
   try {
     const content = await fs.readFile(configPath, 'utf-8');
     const config = JSON.parse(content) as SkillinkConfig;
     return config;
   } catch (error) {
-    throw new Error(`读取配置文件失败: ${error}`);
+    throw new Error(`读取配置文件失败: ${error}`, { cause: error });
   }
 }
 
@@ -57,16 +59,16 @@ export async function readConfig(projectRoot: string): Promise<SkillinkConfig | 
  * 写入配置
  */
 export async function writeConfig(
-  projectRoot: string, 
-  config: SkillinkConfig
+  projectRoot: string,
+  config: SkillinkConfig,
 ): Promise<void> {
   const configPath = getConfigPath(projectRoot);
   await ensureDir(path.dirname(configPath));
-  
+
   try {
     await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
   } catch (error) {
-    throw new Error(`写入配置文件失败: ${error}`);
+    throw new Error(`写入配置文件失败: ${error}`, { cause: error });
   }
 }
 
@@ -83,23 +85,25 @@ export async function configExists(projectRoot: string): Promise<boolean> {
  */
 export async function updateTargets(
   projectRoot: string,
-  targetSelections: Record<string, boolean>
+  targetSelections: Record<string, boolean>,
 ): Promise<void> {
-  const config = await readConfig(projectRoot) || getDefaultConfig();
-  
+  const config = (await readConfig(projectRoot)) || getDefaultConfig();
+
   for (const [targetId, enabled] of Object.entries(targetSelections)) {
     if (config.targets[targetId]) {
       config.targets[targetId].enabled = enabled;
     }
   }
-  
+
   await writeConfig(projectRoot, config);
 }
 
 /**
  * 获取启用的目标工具
  */
-export function getEnabledTargets(config: SkillinkConfig): Array<{ id: string; path: string }> {
+export function getEnabledTargets(
+  config: SkillinkConfig,
+): Array<{ id: string; path: string }> {
   return Object.entries(config.targets)
     .filter(([, target]) => target.enabled)
     .map(([id, target]) => ({ id, path: target.path }));
@@ -110,10 +114,10 @@ export function getEnabledTargets(config: SkillinkConfig): Array<{ id: string; p
  */
 export async function initConfig(
   projectRoot: string,
-  targetSelections?: Record<string, boolean>
+  targetSelections?: Record<string, boolean>,
 ): Promise<void> {
   const config = getDefaultConfig();
-  
+
   // 如果有选择，更新启用状态
   if (targetSelections) {
     for (const [targetId, enabled] of Object.entries(targetSelections)) {
@@ -122,6 +126,6 @@ export async function initConfig(
       }
     }
   }
-  
+
   await writeConfig(projectRoot, config);
 }

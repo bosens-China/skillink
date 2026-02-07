@@ -37,16 +37,26 @@ export const logger = {
   },
 
   /** 列表项 */
-  list(items: Array<{ label: string; value?: string; status?: 'ok' | 'error' | 'warn' | 'info' }>): void {
+  list(
+    items: Array<{
+      label: string;
+      value?: string;
+      status?: 'ok' | 'error' | 'warn' | 'info';
+    }>,
+  ): void {
     for (const item of items) {
-      const icon = item.status === 'ok' ? pc.green('✓')
-        : item.status === 'error' ? pc.red('✗')
-        : item.status === 'warn' ? pc.yellow('⚠')
-        : pc.blue('•');
-      
+      const icon =
+        item.status === 'ok'
+          ? pc.green('✓')
+          : item.status === 'error'
+            ? pc.red('✗')
+            : item.status === 'warn'
+              ? pc.yellow('⚠')
+              : pc.blue('•');
+
       const label = pc.white(item.label);
       const value = item.value ? pc.gray(item.value) : '';
-      
+
       console.log(`  ${icon} ${label} ${value}`);
     }
   },

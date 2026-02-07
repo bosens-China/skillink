@@ -33,7 +33,7 @@ export const builtInTargets: BuiltInTarget[] = [
 
 /** 目标工具 Map（快速查找） */
 export const targetMap = new Map<string, BuiltInTarget>(
-  builtInTargets.map(t => [t.id, t])
+  builtInTargets.map((t) => [t.id, t]),
 );
 
 /**

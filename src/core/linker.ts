@@ -9,34 +9,35 @@ import { isSymlink, safeRemove, ensureDir } from '../utils/fs.js';
 
 /**
  * 创建符号链接
- * 
+ *
  * Windows 处理：
  * - 对目录使用 junction（无需管理员权限）
  * - 对文件使用 symlink（需要管理员权限，失败时 fallback 到 copy）
- * 
+ *
  * macOS/Linux：
  * - 标准符号链接
  */
 export async function createLink(
   source: string,
   target: string,
-  options: { 
+  options: {
     mode?: 'symlink' | 'copy';
     backupOnConflict?: boolean;
-  } = {}
+  } = {},
 ): Promise<SyncResult> {
   const { mode = 'symlink', backupOnConflict = true } = options;
   const skill = path.basename(source);
-  const targetName = path.basename(path.dirname(target)) + '/' + path.basename(target);
-  
+  const targetName =
+    path.basename(path.dirname(target)) + '/' + path.basename(target);
+
   try {
     // 确保目标目录存在
     await ensureDir(path.dirname(target));
-    
+
     // 如果目标已存在，先检查是否是正确的链接
     if (existsSync(target)) {
       const isLink = await isSymlink(target);
-      
+
       if (isLink) {
         // 检查链接指向是否正确
         const existingSource = await fs.readlink(target);
@@ -61,7 +62,7 @@ export async function createLink(
         }
       }
     }
-    
+
     // 创建链接
     if (mode === 'copy') {
       await fs.cp(source, target, { recursive: true });
@@ -70,7 +71,7 @@ export async function createLink(
         // 尝试创建符号链接
         const stat = await fs.stat(source);
         const isDirectory = stat.isDirectory();
-        
+
         if (process.platform === 'win32' && isDirectory) {
           // Windows 目录使用 junction
           await fs.symlink(source, target, 'junction');
@@ -78,12 +79,12 @@ export async function createLink(
           // 其他情况使用符号链接
           await fs.symlink(source, target, isDirectory ? 'dir' : 'file');
         }
-      } catch (error) {
+      } catch {
         // 权限不足，fallback 到 copy
         await fs.cp(source, target, { recursive: true });
       }
     }
-    
+
     return {
       skill,
       target: targetName,
@@ -106,8 +107,9 @@ export async function createLink(
  */
 export async function removeLink(target: string): Promise<SyncResult> {
   const skill = path.basename(target);
-  const targetName = path.basename(path.dirname(target)) + '/' + path.basename(target);
-  
+  const targetName =
+    path.basename(path.dirname(target)) + '/' + path.basename(target);
+
   try {
     if (!existsSync(target)) {
       return {
@@ -117,9 +119,9 @@ export async function removeLink(target: string): Promise<SyncResult> {
         action: 'skipped',
       };
     }
-    
+
     await safeRemove(target);
-    
+
     return {
       skill,
       target: targetName,

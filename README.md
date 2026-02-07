@@ -1,4 +1,4 @@
-# Skillink
+# @boses/skillink
 
 统一 AI Skills 管理工具 - 像 pnpm 一样链接到各 AI 工具目录。
 
@@ -23,7 +23,7 @@
 2. 通过符号链接（symlink）分发到各 AI 工具目录
 3. 一次修改，处处同步
 
-```
+```text
 my-project/
 ├── .agent/
 │   ├── config.json          # 配置要同步的 AI 工具
@@ -52,10 +52,10 @@ my-project/
 
 ```bash
 # 全局安装
-npm install -g skillink
+npm install -g @boses/skillink
 
 # 或使用 pnpm（推荐）
-pnpm add -g skillink
+pnpm add -g @boses/skillink
 ```
 
 ## 快速开始
@@ -68,7 +68,7 @@ skillink init
 ```
 
 交互式选择要支持的 AI 工具（默认全选）：
-```
+```text
 ? 选择要同步的 AI 工具 (按空格选择/取消，回车确认):
 ◉ Cursor  →  .cursor/skills
 ◉ Claude  →  .claude/skills  (Cursor 兼容)
@@ -99,7 +99,7 @@ skillink sync
 ```
 
 输出示例：
-```
+```text
 同步 Skills
 ─────────
 ℹ 扫描到 2 个 skills:
@@ -199,9 +199,9 @@ description: 描述这个 skill 的用途
 
 ## 示例
 
-```
+~~~
 示例代码或提示词
-```
+~~~
 
 ## 注意事项
 

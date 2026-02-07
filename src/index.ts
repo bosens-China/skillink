@@ -2,7 +2,7 @@
 
 /**
  * Skillink CLI 入口
- * 
+ *
  * 统一 AI Skills 管理工具 - 像 pnpm 一样链接到各 AI 工具目录
  */
 import { Command } from 'commander';

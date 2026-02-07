@@ -31,7 +31,10 @@ description: 请在这里描述这个 skill 的用途
 2. 注意事项 2
 `;
 
-export async function add(skillName: string, cwd: string = process.cwd()): Promise<void> {
+export async function add(
+  skillName: string,
+  cwd: string = process.cwd(),
+): Promise<void> {
   if (!skillName) {
     // 交互式输入
     skillName = await input({
@@ -47,31 +50,33 @@ export async function add(skillName: string, cwd: string = process.cwd()): Promi
       },
     });
   }
-  
+
   // 验证名称
   if (!/^[a-z0-9-]+$/.test(skillName)) {
     logger.error('Skill 名称只能包含小写字母、数字和连字符');
     process.exit(1);
   }
-  
+
   const skillsDir = getSkillsDir(cwd);
   const skillDir = path.join(skillsDir, skillName);
-  
+
   // 检查是否已存在
   if (existsSync(skillDir)) {
     logger.error(`Skill "${skillName}" 已存在`);
     process.exit(1);
   }
-  
+
   // 创建目录
   await ensureDir(skillDir);
-  
+
   // 创建 SKILL.md
   const skillContent = SKILL_TEMPLATE.replace(/\{\{name\}\}/g, skillName);
   await fs.writeFile(path.join(skillDir, 'SKILL.md'), skillContent, 'utf-8');
-  
+
   logger.success(`创建 skill: ${pc.cyan(skillName)}`);
   logger.info(`位置: ${pc.gray(path.relative(cwd, skillDir))}`);
   logger.newline();
-  logger.info('提示: 编辑 .agent/skills/{{name}}/SKILL.md 完善内容，然后运行 skillink sync');
+  logger.info(
+    '提示: 编辑 .agent/skills/{{name}}/SKILL.md 完善内容，然后运行 skillink sync',
+  );
 }

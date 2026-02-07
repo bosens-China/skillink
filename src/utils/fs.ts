@@ -28,15 +28,17 @@ export async function pathExists(p: string): Promise<boolean> {
 /**
  * 获取项目根目录（从当前目录向上查找包含 .agent 的目录）
  */
-export async function findProjectRoot(cwd: string = process.cwd()): Promise<string | null> {
+export async function findProjectRoot(
+  cwd: string = process.cwd(),
+): Promise<string | null> {
   let current = cwd;
-  
+
   while (true) {
     const agentPath = path.join(current, AGENT_DIR);
     if (existsSync(agentPath)) {
       return current;
     }
-    
+
     const parent = path.dirname(current);
     if (parent === current) {
       return null;
@@ -71,19 +73,19 @@ export function getConfigPath(projectRoot: string): string {
  */
 export async function getSkills(projectRoot: string): Promise<SkillInfo[]> {
   const skillsDir = getSkillsDir(projectRoot);
-  
+
   if (!existsSync(skillsDir)) {
     return [];
   }
-  
+
   const items = await fs.readdir(skillsDir, { withFileTypes: true });
   const skills: SkillInfo[] = [];
-  
+
   for (const item of items) {
     if (item.isDirectory()) {
       const skillPath = path.join(skillsDir, item.name);
       const hasSkillFile = existsSync(path.join(skillPath, 'SKILL.md'));
-      
+
       skills.push({
         name: item.name,
         path: skillPath,
@@ -91,7 +93,7 @@ export async function getSkills(projectRoot: string): Promise<SkillInfo[]> {
       });
     }
   }
-  
+
   return skills;
 }
 
