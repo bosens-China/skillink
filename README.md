@@ -79,11 +79,12 @@ skillink sync --watch
 | `sync` | 将技能同步到所有配置的目标工具中。支持 `-w, --watch` 模式。 |
 | `status` | 检查并显示当前所有技能与目标工具的同步状态。 |
 | `clean` | 移除所有由 Skillink 创建的符号链接，恢复环境。 |
+| `check` | 检查是否有新版本可用。 |
 
 ## ⚙️ 配置说明 (`skillink.config.ts`)
 
 ```typescript
-import { defineConfig } from 'skillink';
+import { defineConfig } from '@boses/skillink';
 
 export default defineConfig({
   // 技能源目录

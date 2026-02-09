@@ -3,9 +3,13 @@ import { initCommand } from './commands/init.js';
 import { syncCommand } from './commands/sync.js';
 import { statusCommand } from './commands/status.js';
 import { cleanCommand } from './commands/clean.js';
+import { checkCommand } from './commands/check.js';
 import { logger } from './utils/logger.js';
+import { currentVersion } from './utils/update.js';
 
 const cli = cac('skillink');
+
+cli.version(currentVersion);
 
 cli.command('init', '初始化 Skillink 配置').action(() => initCommand());
 
@@ -17,6 +21,8 @@ cli
 cli.command('status', '显示同步状态').action(() => statusCommand({}));
 
 cli.command('clean', '移除所有生成的符号链接').action(() => cleanCommand());
+
+cli.command('check', '检查版本更新').action(() => checkCommand());
 
 cli.help();
 
