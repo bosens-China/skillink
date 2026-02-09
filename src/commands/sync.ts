@@ -1,95 +1,75 @@
-/**
- * sync 命令 - 执行同步
- */
-import { readConfig } from '../core/config.js';
-import { sync as doSync } from '../core/sync.js';
-import { getSkills } from '../utils/fs.js';
-import { logger } from '../utils/logger.js';
+import chokidar from 'chokidar';
+import path from 'node:path';
+import { loadConfig } from '@/core/config.js';
+import { Linker } from '@/core/linker.js';
 import pc from 'picocolors';
 
-export async function sync(cwd: string = process.cwd()): Promise<void> {
-  logger.title('同步 Skills');
+/**
+ * 同步命令
+ * @param options.watch 是否启用监视模式
+ * @param options.cwd 当前工作目录
+ */
+export async function syncCommand(options: { watch?: boolean; cwd?: string }) {
+  const cwd = options.cwd || process.cwd();
 
-  // 检查配置
-  const config = await readConfig(cwd);
-
+  // 1. 加载配置
+  const config = await loadConfig(cwd);
   if (!config) {
-    logger.error('未找到配置，请先运行 skillink init');
+    console.error(pc.red('❌ 未找到配置。请先运行 "skillink init"。'));
     process.exit(1);
   }
 
-  // 获取 skills
-  const skills = await getSkills(cwd);
+  const linker = new Linker(cwd, config);
 
-  if (skills.length === 0) {
-    logger.warn('未找到 skills，请在 .agent/skills/ 目录中添加');
-    return;
-  }
+  // 2. 初始同步
+  console.log(pc.cyan('🔄 正在同步技能...'));
+  const results = await linker.sync();
 
-  logger.info(`扫描到 ${skills.length} 个 skills:`);
-  for (const skill of skills) {
-    logger.list([
-      {
-        label: skill.name,
-        value: skill.valid
-          ? pc.gray('(valid)')
-          : pc.yellow('(missing SKILL.md)'),
-        status: skill.valid ? 'ok' : 'warn',
-      },
-    ]);
-  }
-
-  logger.newline();
-
-  // 执行同步
-  const results = await doSync(cwd, config);
-
-  // 显示结果
-  const grouped = new Map<string, typeof results>();
-  for (const result of results) {
-    if (!grouped.has(result.skill)) {
-      grouped.set(result.skill, []);
-    }
-    grouped.get(result.skill)!.push(result);
-  }
-
-  let created = 0;
-  let updated = 0;
-  let skipped = 0;
-  let errors = 0;
-
-  for (const [skill, skillResults] of grouped) {
-    console.log(pc.white(skill));
-    for (const result of skillResults) {
-      const icon =
-        result.action === 'created'
-          ? pc.green('  →')
-          : result.action === 'updated'
-            ? pc.yellow('  ~')
-            : result.action === 'skipped'
-              ? pc.gray('  =')
-              : pc.red('  ✗');
-
-      const targetPath = pc.gray(
-        result.targetPath.replace(cwd, '').replace(/^[\\/]/, '') || '.',
+  // 打印结果
+  let changes = 0;
+  results.forEach((r) => {
+    if (r.status === 'linked' || r.status === 'cleaned') {
+      console.log(
+        `${pc.green(r.status === 'linked' ? '+' : '-')} ${r.skill} -> ${r.target}`,
       );
-
-      if (result.error) {
-        console.log(
-          `${icon} ${result.target} ${targetPath} ${pc.red(result.error)}`,
-        );
-        errors++;
-      } else {
-        console.log(`${icon} ${result.target} ${targetPath}`);
-        if (result.action === 'created') created++;
-        if (result.action === 'updated') updated++;
-        if (result.action === 'skipped') skipped++;
-      }
+      changes++;
+    } else if (r.status === 'failed') {
+      console.error(pc.red(`❌ ${r.skill} -> ${r.target}: ${r.message}`));
     }
+  });
+
+  if (changes === 0) {
+    console.log(pc.gray('无需更改。所有技能已同步。'));
+  } else {
+    console.log(pc.green(`✅ 已同步 ${changes} 处变更。`));
   }
 
-  logger.newline();
-  logger.success(
-    `同步完成: ${created} 创建, ${updated} 更新, ${skipped} 跳过, ${errors} 错误`,
-  );
+  // 3. 监视模式
+  if (options.watch) {
+    console.log(pc.cyan('\n👀 正在监视变更... 按 Ctrl+C 停止。'));
+
+    const sourceDir = path.resolve(cwd, config.source || '.agents/skills');
+
+    // 只监视源目录的一级子目录（技能目录）的增加和删除
+    const watcher = chokidar.watch(sourceDir, {
+      ignoreInitial: true,
+      depth: 0,
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 100,
+      },
+    });
+
+    watcher.on('all', async (event, filePath) => {
+      const fileName = path.basename(filePath);
+
+      if (event === 'addDir') {
+        console.log(pc.green(`+ 检测到新技能: ${fileName}`));
+        await linker.syncSkillToAll(fileName);
+      } else if (event === 'unlinkDir') {
+        console.log(pc.red(`- 技能已移除: ${fileName}`));
+        await linker.removeSkillFromAll(fileName);
+      }
+    });
+  }
 }

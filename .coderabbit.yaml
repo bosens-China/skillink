@@ -23,21 +23,20 @@ reviews:
       instructions: |
         这是一个 Node.js 20+ CLI 工具项目，请重点审查以下方面：
         
+        **架构核心：符号链接 (Symlink/Junction)**
+        - 确保跨平台（Windows Junction vs POSIX Symlink）的链接逻辑正确且安全。
+        - 检查是否存在误删用户非链接目录的风险。
+        - 验证路径处理是否始终使用绝对路径以避免链接断裂。
+
         **TypeScript 最佳实践**
         - 严格类型检查，避免 `any`，优先使用 `unknown`
-        - 使用 `satisfies` 运算符进行类型验证
-        - 合理使用类型推断，避免冗余类型注解
-        - 优先使用 `interface` 定义对象类型，`type` 用于联合/交叉类型
-        - 使用 ECMAScript 私有字段 `#privateField` 替代 `private`
-        - 异步函数优先返回 `Promise<T>` 而非回调
+        - 使用 `import type` 处理纯类型导入（verbatimModuleSyntax 已启用）
+        - 优先使用命名导出以增强可重构性
         
         **Node.js 20+ 现代语法**
-        - 使用 `node:` 前缀导入所有内置模块（如 `node:fs/promises`）
-        - 使用原生 `fs/promises` 替代回调式 API
-        - 使用 `Promise.withResolvers()` 替代手动创建 Promise
-        - 使用 `Array.prototype.toSorted()`, `toReversed()` 等新方法
-        - 使用 `Object.groupBy()` 或 `Map.groupBy()`（Node 21+）
-        - 使用顶层 await（如果适用）
+        - 使用 `node:` 前缀导入内置模块
+        - 利用 `jiti` 进行动态 TS 配置加载的安全性
+        - 错误处理优先使用类型守卫 (Type Guards)
         
         **ESM 规范（项目使用 ESM）**
         - 所有相对导入必须有 `.js` 扩展名（如 `import { x } from './utils.js'`）

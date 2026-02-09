@@ -1,98 +1,84 @@
-/**
- * status 命令 - 查看状态
- */
-import { readConfig, getEnabledTargets } from '../core/config.js';
-import { getSkills } from '../utils/fs.js';
-import { getAllBuiltInTargets } from '../core/registry.js';
-import { logger } from '../utils/logger.js';
+import { loadConfig } from '@/core/config.js';
+import { logger } from '@/utils/logger.js';
+import pc from 'picocolors';
+import path from 'node:path';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import path from 'node:path';
-import pc from 'picocolors';
 
-export async function status(cwd: string = process.cwd()): Promise<void> {
-  logger.title('Skillink 状态');
+/**
+ * 状态命令：显示所有技能的同步状态
+ */
+export async function statusCommand(options: { cwd?: string }) {
+  const cwd = options.cwd || process.cwd();
 
-  // 检查配置
-  const config = await readConfig(cwd);
-
+  // 1. 加载配置
+  const config = await loadConfig(cwd);
   if (!config) {
-    logger.error('未找到配置，请先运行 skillink init');
+    logger.error('未找到配置文件。请先运行 "skillink init"。');
     return;
   }
 
-  // 配置信息
-  logger.info('配置:');
-  logger.list([
-    {
-      label: '版本',
-      value: config.version,
-      status: 'info',
-    },
-    {
-      label: '同步模式',
-      value: config.options?.syncMode ?? 'symlink',
-      status: 'info',
-    },
-  ]);
-
+  logger.title('Skillink 同步状态');
   logger.newline();
 
-  // 目标工具状态
-  const enabledTargets = getEnabledTargets(config);
-  const allTargets = getAllBuiltInTargets();
+  const sourcePath = path.resolve(cwd, config.source || '.agents/skills');
+  logger.info(`源目录: ${sourcePath}`);
+
+  if (!existsSync(sourcePath)) {
+    logger.error('源目录不存在！');
+    return;
+  }
+
+  const skills = await fs.readdir(sourcePath, { withFileTypes: true });
+  const validSkills = skills
+    .filter((s) => s.isDirectory() && !s.name.startsWith('.'))
+    .map((s) => s.name);
+  logger.gray(`找到 ${validSkills.length} 个技能。`);
+  logger.newline();
 
   logger.info('目标工具:');
-  for (const target of allTargets) {
-    const enabled = enabledTargets.some((t) => t.id === target.id);
-    const targetPath = path.join(cwd, target.defaultPath);
-    const exists = existsSync(targetPath);
 
-    // 统计该目标的 skill 数量
-    let skillCount = 0;
-    if (exists) {
-      try {
-        const items = await fs.readdir(targetPath);
-        skillCount = items.length;
-      } catch {
-        // ignore
+  for (const target of config.targets) {
+    if (target.enabled === false) continue;
+
+    const targetDir = path.resolve(cwd, target.path);
+    console.log(`${pc.bold(target.name)} [${targetDir}]`);
+
+    if (!existsSync(targetDir)) {
+      console.log(pc.red('  - 目录缺失（运行 sync 命令以创建）'));
+      continue;
+    }
+
+    let syncedCount = 0;
+    let missingCount = 0;
+    let brokenCount = 0;
+
+    for (const skill of validSkills) {
+      const linkPath = path.join(targetDir, skill);
+
+      if (!existsSync(linkPath)) {
+        // 链接可能存在但指向无效（Broken）
+        try {
+          const stats = await fs.lstat(linkPath);
+          if (stats.isSymbolicLink()) {
+            brokenCount++;
+          } else {
+            missingCount++;
+          }
+        } catch {
+          missingCount++;
+        }
+      } else {
+        syncedCount++;
       }
     }
 
-    logger.list([
-      {
-        label: target.name,
-        value: `${target.defaultPath} (${skillCount} links)`,
-        status: enabled ? 'ok' : 'info',
-      },
-    ]);
-  }
+    if (missingCount > 0) console.log(pc.yellow(`  - ${missingCount} 个缺失`));
+    if (brokenCount > 0) console.log(pc.red(`  - ${brokenCount} 个失效链接`));
+    if (syncedCount > 0) console.log(pc.green(`  - ${syncedCount} 个已同步`));
+    if (missingCount === 0 && brokenCount === 0)
+      console.log(pc.green('  状态良好！'));
 
-  logger.newline();
-
-  // Skills 状态
-  const skills = await getSkills(cwd);
-
-  if (skills.length === 0) {
-    logger.warn('未找到 skills');
-  } else {
-    logger.info(`Skills (${skills.length}):`);
-    for (const skill of skills) {
-      const targets = enabledTargets.map(async (t) => {
-        const targetPath = path.join(cwd, t.path, skill.name);
-        const exists = existsSync(targetPath);
-        return exists ? pc.green(t.id) : pc.gray(t.id);
-      });
-
-      const targetStatus = await Promise.all(targets);
-
-      logger.list([
-        {
-          label: skill.name,
-          value: `→ ${targetStatus.join(', ')}`,
-          status: skill.valid ? 'ok' : 'warn',
-        },
-      ]);
-    }
+    console.log('');
   }
 }

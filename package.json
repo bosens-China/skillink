@@ -41,21 +41,20 @@
   "license": "MIT",
   "packageManager": "pnpm@10.18.2",
   "dependencies": {
+    "cac": "^6.7.14",
     "chokidar": "^5.0.0",
     "commander": "^14.0.3",
-    "fs-extra": "^11.3.3"
+    "jiti": "^2.6.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@eslint/markdown": "^7.5.1",
     "@inquirer/prompts": "^8.2.0",
-    "@types/fs-extra": "^11.0.4",
     "@types/node": "^25.2.1",
     "eslint": "^10.0.0",
     "globals": "^17.3.0",
     "picocolors": "^1.1.1",
     "prettier": "^3.8.1",
-    "ts-node": "^10.9.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0"

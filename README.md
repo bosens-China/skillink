@@ -1,229 +1,111 @@
-# @boses/skillink
+# Skillink 🚀
 
-统一 AI Skills 管理工具 - 像 pnpm 一样链接到各 AI 工具目录。
+**Skillink** 是一个为 AI 时代打造的技能管理工具。它允许你在一个统一的目录（`.agents/skills`）中编写 AI 技能（Skills），并利用符号链接（Symlink/Junction）技术，即时同步到各种 AI 工具（如 Cursor、Windsurf、VSCode、Gemini）的配置目录中。
 
-## 问题背景
+> **核心理念：一次编写，处处生效。**
 
-现在有很多 AI 工具支持 skills（如 Cursor、Gemini CLI 等），但每家的文件夹路径都不同：
+## ✨ 特性
 
-| AI 工具 | Skills 路径 |
-|---------|------------|
-| Cursor | `.cursor/skills/` |
-| Claude | `.claude/skills/` |
-| Codex | `.codex/skills/` |
-| Gemini CLI | `.gemini/skills/` |
+-   **🎯 极简架构**：基于 Node.js 20+ 和 TypeScript 5.x，性能卓越。
+-   **🔗 零克隆开销**：采用符号链接技术，目标目录的文件只是源文件的引用。修改源文件，AI 工具立即感知，无需等待同步。
+-   **🛠️ 极致 DX**：
+    -   **交互式初始化**：一键引导配置。
+    -   **自动探测与创建**：自动管理 AI 工具的配置目录。
+    -   **实时监视**：支持 `--watch` 模式，动态响应技能的增删。
+-   **🛡️ 安全可靠**：仅操作符号链接，不轻易改动或删除用户的原始文件。
 
-这导致同一个 skill 需要复制多份，无法复用和同步。
+## 📦 安装
 
-## 解决方案
-
-**Skillink** 借鉴 pnpm 的链接机制：
-
-1. 在 `.agent/skills/` 统一维护所有 skills
-2. 通过符号链接（symlink）分发到各 AI 工具目录
-3. 一次修改，处处同步
-
-```text
-my-project/
-├── .agent/
-│   ├── config.json          # 配置要同步的 AI 工具
-│   └── skills/              # 统一维护 skills
-│       └── my-skill/
-│           └── SKILL.md
-├── .cursor/
-│   └── skills/
-│       └── my-skill -> ../../.agent/skills/my-skill  (symlink)
-├── .claude/
-│   └── skills/
-│       └── my-skill -> ../../.agent/skills/my-skill  (symlink)
-├── .codex/
-│   └── skills/
-│       └── my-skill -> ../../.agent/skills/my-skill  (symlink)
-└── .gemini/
-    └── skills/
-        └── my-skill -> ../../.agent/skills/my-skill  (symlink)
-```
-
-## 环境要求
-
-- **Node.js >= 20.0.0**
-
-## 安装
+推荐全局安装以便在任何项目中使用：
 
 ```bash
-# 全局安装
+# 使用 pnpm
+pnpm add -g @boses/skillink
+
+# 使用 npm
 npm install -g @boses/skillink
 
-# 或使用 pnpm（推荐）
-pnpm add -g @boses/skillink
+# 使用 yarn
+yarn global add @boses/skillink
 ```
 
-## 快速开始
+或者使用 `npx` 快速试用：
+
+```bash
+npx @boses/skillink init
+```
+
+## 🚀 快速开始
 
 ### 1. 初始化项目
 
+在项目根目录下运行：
+
 ```bash
-cd my-project
 skillink init
 ```
 
-交互式选择要支持的 AI 工具（默认全选）：
+按照交互提示选择你正在使用的 AI 工具。该命令会自动：
+- 创建 `.agents/skills` 目录并添加一个示例技能。
+- 生成 `skillink.config.ts` 配置文件。
+
+### 2. 编写技能
+
+在 `.agents/skills` 目录下创建子文件夹，并在其中编写 `SKILL.md`：
+
 ```text
-? 选择要同步的 AI 工具 (按空格选择/取消，回车确认):
-◉ Cursor  →  .cursor/skills
-◉ Claude  →  .claude/skills  (Cursor 兼容)
-◉ Codex   →  .codex/skills   (Cursor 兼容)
-◉ Gemini  →  .gemini/skills
+.agents/skills/
+└── react-expert/
+    └── SKILL.md
 ```
 
-### 2. 添加 Skills
-
-**方式一：手动添加**
-
-将 skill 文件夹放入 `.agent/skills/`：
-```bash
-mkdir .agent/skills/my-skill
-echo "# My Skill" > .agent/skills/my-skill/SKILL.md
-```
-
-**方式二：使用模板创建**
-
-```bash
-skillink add my-skill
-```
-
-### 3. 同步到各 AI 工具
+### 3. 同步到工具
 
 ```bash
 skillink sync
 ```
 
-输出示例：
-```text
-同步 Skills
-─────────
-ℹ 扫描到 2 个 skills:
-  ✓ code-review (valid)
-  ✓ git-commit (valid)
-
-code-review
-  → cursor .cursor/skills/code-review
-  → claude .claude/skills/code-review
-  → codex .codex/skills/code-review
-  → gemini .gemini/skills/code-review
-
-git-commit
-  → cursor .cursor/skills/git-commit
-  → claude .claude/skills/git-commit
-  → codex .codex/skills/git-commit
-  → gemini .gemini/skills/git-commit
-
-✓ 同步完成: 8 创建, 0 更新, 0 跳过, 0 错误
-```
-
-### 4. 开发时自动同步（可选）
+想要在开发时自动同步新增的技能？运行：
 
 ```bash
-skillink watch
+skillink sync --watch
 ```
 
-修改 `.agent/skills/` 中的文件会自动同步到各 AI 工具目录。
-
-## 命令列表
+## 🛠️ 命令详解
 
 | 命令 | 描述 |
-|------|------|
-| `skillink init` | 初始化 .agent 目录和配置 |
-| `skillink config` | 修改 AI 工具配置（交互式） |
-| `skillink sync` | 同步 skills 到各 AI 工具目录 |
-| `skillink status` | 查看当前状态 |
-| `skillink watch` | 监视模式，自动同步变更 |
-| `skillink add [name]` | 创建新的 skill 模板 |
+| :--- | :--- |
+| `init` | 初始化项目环境，生成 `.agents/skills` 和配置文件。 |
+| `sync` | 将技能同步到所有配置的目标工具中。支持 `-w, --watch` 模式。 |
+| `status` | 检查并显示当前所有技能与目标工具的同步状态。 |
+| `clean` | 移除所有由 Skillink 创建的符号链接，恢复环境。 |
 
-## 配置说明
+## ⚙️ 配置说明 (`skillink.config.ts`)
 
-`.agent/config.json`：
+```typescript
+import { defineConfig } from 'skillink';
 
-```json
-{
-  "version": "1.0.0",
-  "targets": {
-    "cursor": {
-      "enabled": true,
-      "path": ".cursor/skills"
+export default defineConfig({
+  // 技能源目录
+  source: '.agents/skills',
+  // 同步目标列表
+  targets: [
+    {
+      name: 'cursor',
+      path: '.cursor/rules',
+      // 是否启用该目标（默认为 true）
+      // 设置为 false 后，sync 和 status 命令将忽略此目标
+      enabled: true,
     },
-    "claude": {
-      "enabled": true,
-      "path": ".claude/skills"
-    },
-    "codex": {
-      "enabled": true,
-      "path": ".codex/skills"
-    },
-    "gemini": {
-      "enabled": true,
-      "path": ".gemini/skills"
+    {
+      name: 'gemini',
+      path: '.gemini/modules',
+      enabled: true,
     }
-  },
-  "options": {
-    "syncMode": "symlink",
-    "backupOnConflict": true
-  }
-}
+  ],
+});
 ```
 
-### 配置字段说明
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `targets` | object | 目标 AI 工具配置 |
-| `targets.{id}.enabled` | boolean | 是否启用该工具 |
-| `targets.{id}.path` | string | 该工具的 skills 目录路径 |
-| `options.syncMode` | `"symlink" \| "copy"` | 同步模式，默认 symlink |
-| `options.backupOnConflict` | boolean | 冲突时是否备份，默认 true |
-
-## SKILL.md 格式
-
-Skillink 使用标准的 Agent Skills 格式：
-
-```markdown
----
-name: my-skill
-description: 描述这个 skill 的用途
----
-
-## 使用场景
-
-- 场景 1
-- 场景 2
-
-## 示例
-
-~~~
-示例代码或提示词
-~~~
-
-## 注意事项
-
-1. 注意事项 1
-2. 注意事项 2
-```
-
-## 跨平台支持
-
-| 平台 | 链接类型 | 说明 |
-|------|----------|------|
-| **macOS/Linux** | Symbolic Link | 标准符号链接 |
-| **Windows** | Junction (目录) / Symlink (文件) | 目录使用 junction（无需管理员权限），文件 symlink 失败时自动 fallback 到 copy |
-
-## 技术栈
-
-- **Runtime**: Node.js 20+ (ESM)
-- **Build**: tsup (快速打包)
-- **CLI**: Commander.js + @inquirer/prompts
-- **文件监听**: chokidar
-- **终端颜色**: picocolors
-
-## License
+## 📄 许可证
 
 MIT

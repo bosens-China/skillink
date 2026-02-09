@@ -1,167 +1,225 @@
-/**
- * 链接操作模块 - 跨平台符号链接管理
- */
+import path from 'node:path';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import path from 'node:path';
-import { SyncResult } from '../types/index.js';
-import { isSymlink, safeRemove, ensureDir } from '../utils/fs.js';
+import type { SkillinkConfig, SyncResult } from '../types/index.js';
+import { ensureDir, isSymlink, createSymlink } from '../utils/fs.js';
 
 /**
- * 创建符号链接
- *
- * Windows 处理：
- * - 对目录使用 junction（无需管理员权限）
- * - 对文件使用 symlink（需要管理员权限，失败时 fallback 到 copy）
- *
- * macOS/Linux：
- * - 标准符号链接
+ * 核心链接器类：负责同步逻辑
  */
-export async function createLink(
-  source: string,
-  target: string,
-  options: {
-    mode?: 'symlink' | 'copy';
-    backupOnConflict?: boolean;
-  } = {},
-): Promise<SyncResult> {
-  const { mode = 'symlink', backupOnConflict = true } = options;
-  const skill = path.basename(source);
-  const targetName =
-    path.basename(path.dirname(target)) + '/' + path.basename(target);
+export class Linker {
+  private config: SkillinkConfig;
+  private root: string;
 
-  try {
-    // 确保目标目录存在
-    await ensureDir(path.dirname(target));
-
-    // 如果目标已存在，先检查是否是正确的链接
-    if (existsSync(target)) {
-      const isLink = await isSymlink(target);
-
-      if (isLink) {
-        // 检查链接指向是否正确
-        const existingSource = await fs.readlink(target);
-        if (path.resolve(existingSource) === path.resolve(source)) {
-          return {
-            skill,
-            target: targetName,
-            targetPath: target,
-            action: 'skipped',
-          };
-        }
-        // 链接指向不正确，删除重建
-        await fs.unlink(target);
-      } else {
-        // 冲突处理：不是链接
-        if (backupOnConflict) {
-          const backupPath = `${target}.backup.${Date.now()}`;
-          await fs.rename(target, backupPath);
-        } else {
-          // 不备份则直接递归删除
-          await fs.rm(target, { recursive: true, force: true });
-        }
-      }
-    }
-
-    // 创建链接
-    if (mode === 'copy') {
-      await fs.cp(source, target, { recursive: true });
-    } else {
-      try {
-        // 尝试创建符号链接
-        const stat = await fs.stat(source);
-        const isDirectory = stat.isDirectory();
-
-        if (process.platform === 'win32' && isDirectory) {
-          // Windows 目录使用 junction
-          await fs.symlink(source, target, 'junction');
-        } else {
-          // 其他情况使用符号链接
-          await fs.symlink(source, target, isDirectory ? 'dir' : 'file');
-        }
-      } catch {
-        // 权限不足，fallback 到 copy
-        await fs.cp(source, target, { recursive: true });
-      }
-    }
-
-    return {
-      skill,
-      target: targetName,
-      targetPath: target,
-      action: 'created',
-    };
-  } catch (error) {
-    return {
-      skill,
-      target: targetName,
-      targetPath: target,
-      action: 'error',
-      error: String(error),
-    };
+  constructor(root: string, config: SkillinkConfig) {
+    this.root = root;
+    this.config = config;
   }
-}
 
-/**
- * 移除链接
- */
-export async function removeLink(target: string): Promise<SyncResult> {
-  const skill = path.basename(target);
-  const targetName =
-    path.basename(path.dirname(target)) + '/' + path.basename(target);
+  /**
+   * 将所有技能同步到所有目标
+   */
+  async sync(): Promise<SyncResult[]> {
+    const results: SyncResult[] = [];
+    const sourceDir = path.resolve(
+      this.root,
+      this.config.source || '.agents/skills',
+    );
 
-  try {
-    if (!existsSync(target)) {
+    if (!existsSync(sourceDir)) {
+      throw new Error(`未找到源目录: ${sourceDir}`);
+    }
+
+    const skills = await this.getSkills(sourceDir);
+    const targets = this.config.targets.filter((t) => t.enabled !== false);
+
+    for (const target of targets) {
+      const targetDir = path.resolve(this.root, target.path);
+
+      try {
+        await ensureDir(targetDir);
+
+        // 1. 同步有效技能
+        for (const skill of skills) {
+          const result = await this.syncSkill(sourceDir, targetDir, skill);
+          results.push({ ...result, target: target.name });
+        }
+
+        // 2. 清理失效链接
+        const cleanResults = await this.cleanStale(targetDir, skills);
+        results.push(
+          ...cleanResults.map((r) => ({ ...r, target: target.name })),
+        );
+      } catch (error: unknown) {
+        results.push({
+          skill: '*',
+          target: target.name,
+          status: 'failed',
+          message: `目标错误: ${error instanceof Error ? error.message : String(error)}`,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 同步单个技能（创建或修复链接）
+   */
+  private async syncSkill(
+    sourceRoot: string,
+    targetRoot: string,
+    skillName: string,
+  ): Promise<SyncResult> {
+    const sourcePath = path.join(sourceRoot, skillName);
+    const targetPath = path.join(targetRoot, skillName);
+
+    try {
+      if (existsSync(targetPath)) {
+        if (isSymlink(targetPath)) {
+          // 检查链接是否指向正确的源
+          const currentTarget = await fs.readlink(targetPath);
+          const absCurrent = path.resolve(
+            path.dirname(targetPath),
+            currentTarget,
+          );
+          const absSource = path.resolve(sourcePath);
+
+          if (absCurrent === absSource) {
+            return {
+              skill: skillName,
+              target: '',
+              status: 'skipped',
+              message: '已正确链接',
+            };
+          }
+        }
+        // 如果已存在但不是链接，或指向错误，createSymlink 会处理或报错
+      }
+
+      await createSymlink(sourcePath, targetPath);
+      return { skill: skillName, target: '', status: 'linked' };
+    } catch (error: unknown) {
       return {
-        skill,
-        target: targetName,
-        targetPath: target,
-        action: 'skipped',
+        skill: skillName,
+        target: '',
+        status: 'failed',
+        message: error instanceof Error ? error.message : String(error),
       };
     }
-
-    await safeRemove(target);
-
-    return {
-      skill,
-      target: targetName,
-      targetPath: target,
-      action: 'removed',
-    };
-  } catch (error) {
-    return {
-      skill,
-      target: targetName,
-      targetPath: target,
-      action: 'error',
-      error: String(error),
-    };
   }
-}
 
-/**
- * 获取链接指向的源路径
- */
-export async function getLinkSource(target: string): Promise<string | null> {
-  try {
-    if (await isSymlink(target)) {
-      return await fs.readlink(target);
+  /**
+   * 清理目标目录中的失效链接
+   */
+  private async cleanStale(
+    targetRoot: string,
+    validSkills: string[],
+  ): Promise<SyncResult[]> {
+    const results: SyncResult[] = [];
+    if (!existsSync(targetRoot)) return [];
+
+    const items = await fs.readdir(targetRoot, { withFileTypes: true });
+
+    for (const item of items) {
+      if (item.isDirectory() || item.isSymbolicLink()) {
+        // 如果不在有效技能列表中
+        if (!validSkills.includes(item.name)) {
+          const itemPath = path.join(targetRoot, item.name);
+
+          // 只删除符号链接，保护普通目录
+          if (isSymlink(itemPath)) {
+            await fs.unlink(itemPath);
+            results.push({
+              skill: item.name,
+              target: '',
+              status: 'cleaned',
+              message: '已移除失效链接',
+            });
+          }
+        }
+      }
     }
-    return null;
-  } catch {
-    return null;
+    return results;
   }
-}
 
-/**
- * 检查链接是否有效（源文件仍然存在）
- */
-export async function isLinkValid(target: string): Promise<boolean> {
-  try {
-    const source = await getLinkSource(target);
-    if (!source) return false;
-    return existsSync(source);
-  } catch {
-    return false;
+  /**
+   * 将特定技能同步到所有目标（用于 Watch 模式）
+   */
+  async syncSkillToAll(skillName: string): Promise<void> {
+    const sourceDir = path.resolve(
+      this.root,
+      this.config.source || '.agents/skills',
+    );
+    const targets = this.config.targets.filter((t) => t.enabled !== false);
+
+    for (const target of targets) {
+      const targetDir = path.resolve(this.root, target.path);
+      await ensureDir(targetDir);
+      await this.syncSkill(sourceDir, targetDir, skillName);
+    }
+  }
+
+  /**
+   * 从所有目标中移除特定技能（用于 Watch 模式）
+   */
+  async removeSkillFromAll(skillName: string): Promise<void> {
+    const targets = this.config.targets.filter((t) => t.enabled !== false);
+
+    for (const target of targets) {
+      const targetDir = path.resolve(this.root, target.path);
+      const targetPath = path.join(targetDir, skillName);
+
+      if (existsSync(targetPath)) {
+        if (isSymlink(targetPath)) {
+          await fs.unlink(targetPath);
+        }
+      }
+    }
+  }
+
+  /**
+   * 清理所有由 Skillink 创建的符号链接
+   */
+  async cleanAll(): Promise<void> {
+    const targets = this.config.targets.filter((t) => t.enabled !== false);
+
+    for (const target of targets) {
+      const targetDir = path.resolve(this.root, target.path);
+      if (!existsSync(targetDir)) continue;
+
+      const items = await fs.readdir(targetDir, { withFileTypes: true });
+      for (const item of items) {
+        if (item.isSymbolicLink()) {
+          const itemPath = path.join(targetDir, item.name);
+          try {
+            const linkTarget = await fs.readlink(itemPath);
+            const absLinkTarget = path.resolve(targetDir, linkTarget);
+            const absSourceDir = path.resolve(
+              this.root,
+              this.config.source || '.agents/skills',
+            );
+
+            // 如果链接指向源目录，则删除
+            if (absLinkTarget.startsWith(absSourceDir)) {
+              await fs.unlink(itemPath);
+              console.log(`已从 ${target.name} 移除 ${item.name}`);
+            }
+          } catch {
+            // 忽略读取错误
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * 获取源目录下的所有有效技能（子目录）
+   */
+  private async getSkills(sourceDir: string): Promise<string[]> {
+    const items = await fs.readdir(sourceDir, { withFileTypes: true });
+    return items
+      .filter((item) => item.isDirectory() && !item.name.startsWith('.'))
+      .map((item) => item.name);
   }
 }

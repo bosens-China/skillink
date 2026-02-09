@@ -8,6 +8,7 @@
 - 使用中文回复
 - 目前代码是 Node 20+，请使用现代化语法
 - 技术栈为 TypeScript 开发
+- 使用 pnpm 作为包管理工具
 
 ## Code style
 
