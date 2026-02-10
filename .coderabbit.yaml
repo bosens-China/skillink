@@ -6,34 +6,34 @@ language: zh-CN
 
 reviews:
   profile: chill
-  
+
   # 自动审核配置（关键）
   auto_review:
-    enabled: true           # 开启自动审核
-    drafts: false           # 不审核 draft PR
-    auto_incremental_review: true  # 每次推送自动增量审核
-    
+    enabled: true # 开启自动审核
+    drafts: false # 不审核 draft PR
+    auto_incremental_review: true # 每次推送自动增量审核
+
   request_changes_workflow: false
-  high_level_summary: true  # 生成高级摘要
-  poem: true                # 生成一首有趣的诗
-  review_status: true       # 显示审核状态
-  
+  high_level_summary: true # 生成高级摘要
+  poem: true # 生成一首有趣的诗
+  review_status: true # 显示审核状态
+
   suggest_code_changes: true
   summarize: true
   generate_release_notes: true
-  
+
   path_filters:
-    - "!node_modules/**"
-    - "!dist/**"
-    - "!.git/**"
-    - "!pnpm-lock.yaml"
-    - "!**/*.d.ts"
-  
+    - '!node_modules/**'
+    - '!dist/**'
+    - '!.git/**'
+    - '!pnpm-lock.yaml'
+    - '!**/*.d.ts'
+
   path_instructions:
-    - path: "src/**/*.ts"
+    - path: 'src/**/*.ts'
       instructions: |
         这是一个 Node.js 20+ CLI 工具项目，请重点审查以下方面：
-        
+
         **架构核心：符号链接 (Symlink/Junction)**
         - 确保跨平台（Windows Junction vs POSIX Symlink）的链接逻辑正确且安全。
         - 检查是否存在误删用户非链接目录的风险。
@@ -43,41 +43,41 @@ reviews:
         - 严格类型检查，避免 `any`，优先使用 `unknown`
         - 使用 `import type` 处理纯类型导入（verbatimModuleSyntax 已启用）
         - 优先使用命名导出以增强可重构性
-        
+
         **Node.js 20+ 现代语法**
         - 使用 `node:` 前缀导入内置模块
         - 利用 `jiti` 进行动态 TS 配置加载的安全性
         - 错误处理优先使用类型守卫 (Type Guards)
-        
+
         **ESM 规范（项目使用 ESM）**
         - 所有相对导入必须有 `.js` 扩展名（如 `import { x } from './utils.js'`）
         - 使用命名导出（named exports）而非默认导出
         - 避免使用 `__dirname`, `__filename`，使用 `import.meta.url` + `fileURLToPath`
-        
+
         **代码质量**
         - 使用可选链 `?.` 和空值合并 `??` 替代繁琐的空值检查
         - 使用解构和剩余参数（rest parameters）
         - 优先使用 `const` 和 `let`，避免 `var`
         - 字符串拼接优先使用模板字面量
         - 错误处理使用类型守卫（type guards）而非 `instanceof Error`
-    
-    - path: "package.json"
+
+    - path: 'package.json'
       instructions: |
         检查 package.json 变更：
         - `"type": "module"` 是否保持（ESM 项目）
         - `"engines": {"node": ">=20.0.0"}` 是否正确
         - 依赖是否支持 ESM，避免引入仅 CommonJS 的包
         - 脚本是否使用现代语法（如使用 `node --watch` 替代 nodemon）
-    
-    - path: "tsconfig.json"
+
+    - path: 'tsconfig.json'
       instructions: |
         检查 TypeScript 配置是否现代：
         - `"target": "ES2022"` 或更高
         - `"module": "NodeNext"` 且 `"moduleResolution": "NodeNext"`
         - `"strict": true` 启用所有严格类型检查
         - `"esModuleInterop": true` 和 `"skipLibCheck": true`
-    
-    - path: "**/*.md"
+
+    - path: '**/*.md'
       instructions: |
         检查文档中的代码示例：
         - 是否使用 Node.js 20+ 语法
@@ -90,6 +90,6 @@ chat:
 # 忽略标签配置
 ignore:
   labels:
-    - "ignore-coderabbit"
-    - "draft"
+    - 'ignore-coderabbit'
+    - 'draft'
   draft_prs: true

@@ -22,3 +22,4 @@
 - TS 校验: `pnpm lint`
 - Eslint 校验代码: `pnpm check`
 - 格式化代码: `pnpm format`
+- 运行测试用例： `pnpm test`
