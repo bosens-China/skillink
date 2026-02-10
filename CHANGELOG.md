@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5](https://github.com/bosens-China/skillink/compare/v1.0.4...v1.0.5) (2026-02-10)
+
+
+### Bug Fixes
+
+* **ci:** 修复缺少元数据导致发布报错 ([91e1ad4](https://github.com/bosens-China/skillink/commit/91e1ad43a755a11d84cadc7923af154c6f273b66))
+
 ## [1.0.4](https://github.com/bosens-China/skillink/compare/v1.0.3...v1.0.4) (2026-02-10)
 
 
