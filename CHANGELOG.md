@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/bosens-China/skillink/compare/v1.0.0...v1.0.1) (2026-02-10)
+
+
+### Bug Fixes
+
+* 修复cli和index混合，导致配置文件无法加载问题 ([c8d8a56](https://github.com/bosens-China/skillink/commit/c8d8a567b4dd91f3e336f190df8599fc14ba64ae))
+
 ## 1.0.0 (2026-02-09)
 
 
