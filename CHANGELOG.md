@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/bosens-China/skillink/compare/v1.0.2...v1.0.3) (2026-02-10)
+
+
+### Bug Fixes
+
+* **ci:** 清空 NODE_AUTH_TOKEN 以强制使用 Trusted Publishing OIDC 认证 ([80dd1ac](https://github.com/bosens-China/skillink/commit/80dd1ac9f62cf302339c949602edc4a8df0c13f0))
+
 ## [1.0.2](https://github.com/bosens-China/skillink/compare/v1.0.1...v1.0.2) (2026-02-10)
 
 
