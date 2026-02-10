@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/bosens-China/skillink/compare/v1.0.3...v1.0.4) (2026-02-10)
+
+
+### Bug Fixes
+
+* **ci:** ci最低node版本调整，满足npm发布要求 ([d8b8bca](https://github.com/bosens-China/skillink/commit/d8b8bcac4d8387b3323c962eca27f119efb10173))
+
 ## [1.0.3](https://github.com/bosens-China/skillink/compare/v1.0.2...v1.0.3) (2026-02-10)
 
 
