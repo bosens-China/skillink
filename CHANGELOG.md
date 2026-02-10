@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/bosens-China/skillink/compare/v1.0.1...v1.0.2) (2026-02-10)
+
+
+### Bug Fixes
+
+* 更新 CodeRabbit 配置，启用自动审核并修复 lock 文件 ([94a0d1c](https://github.com/bosens-China/skillink/commit/94a0d1ce98a9c2cb4a189f14456221225f5ca0d4))
+
 ## [1.0.1](https://github.com/bosens-China/skillink/compare/v1.0.0...v1.0.1) (2026-02-10)
 
 
