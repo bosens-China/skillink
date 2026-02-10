@@ -3,6 +3,7 @@ import path from 'node:path';
 import { loadConfig } from '@/core/config.js';
 import { Linker } from '@/core/linker.js';
 import pc from 'picocolors';
+import { isChineseLocale, resolveLocale } from '@/utils/locale.js';
 
 /**
  * 同步命令
@@ -11,18 +12,30 @@ import pc from 'picocolors';
  */
 export async function syncCommand(options: { watch?: boolean; cwd?: string }) {
   const cwd = options.cwd || process.cwd();
+  const fallbackLocale = resolveLocale();
+  const fallbackChinese = isChineseLocale(fallbackLocale);
 
   // 1. 加载配置
   const config = await loadConfig(cwd);
   if (!config) {
-    console.error(pc.red('❌ 未找到配置。请先运行 "skillink init"。'));
+    console.error(
+      pc.red(
+        fallbackChinese
+          ? '❌ 未找到配置。请先运行 "skillink init"。'
+          : '❌ Configuration not found. Run "skillink init" first.',
+      ),
+    );
     process.exit(1);
   }
+  const locale = resolveLocale(config.locale);
+  const isChinese = isChineseLocale(locale);
 
   const linker = new Linker(cwd, config);
 
   // 2. 初始同步
-  console.log(pc.cyan('🔄 正在同步技能...'));
+  console.log(
+    pc.cyan(isChinese ? '🔄 正在同步技能...' : '🔄 Syncing skills...'),
+  );
   const results = await linker.sync();
 
   // 打印结果
@@ -34,19 +47,43 @@ export async function syncCommand(options: { watch?: boolean; cwd?: string }) {
       );
       changes++;
     } else if (r.status === 'failed') {
-      console.error(pc.red(`❌ ${r.skill} -> ${r.target}: ${r.message}`));
+      console.error(
+        pc.red(
+          isChinese
+            ? `❌ ${r.skill} -> ${r.target}: ${r.message}`
+            : `❌ ${r.skill} -> ${r.target}: ${r.message}`,
+        ),
+      );
     }
   });
 
   if (changes === 0) {
-    console.log(pc.gray('无需更改。所有技能已同步。'));
+    console.log(
+      pc.gray(
+        isChinese
+          ? '无需更改。所有技能已同步。'
+          : 'No changes needed. All skills are already synced.',
+      ),
+    );
   } else {
-    console.log(pc.green(`✅ 已同步 ${changes} 处变更。`));
+    console.log(
+      pc.green(
+        isChinese
+          ? `✅ 已同步 ${changes} 处变更。`
+          : `✅ Synced ${changes} change(s).`,
+      ),
+    );
   }
 
   // 3. 监视模式
   if (options.watch) {
-    console.log(pc.cyan('\n👀 正在监视变更... 按 Ctrl+C 停止。'));
+    console.log(
+      pc.cyan(
+        isChinese
+          ? '\n👀 正在监视变更... 按 Ctrl+C 停止。'
+          : '\n👀 Watching for changes... Press Ctrl+C to stop.',
+      ),
+    );
 
     const sourceDir = path.resolve(cwd, config.source || '.agents/skills');
 
@@ -69,16 +106,30 @@ export async function syncCommand(options: { watch?: boolean; cwd?: string }) {
 
       try {
         if (event === 'addDir') {
-          console.log(pc.green(`+ 检测到新技能: ${fileName}`));
+          console.log(
+            pc.green(
+              isChinese
+                ? `+ 检测到新技能: ${fileName}`
+                : `+ New skill detected: ${fileName}`,
+            ),
+          );
           await linker.syncSkillToAll(fileName);
         } else if (event === 'unlinkDir') {
-          console.log(pc.red(`- 技能已移除: ${fileName}`));
+          console.log(
+            pc.red(
+              isChinese
+                ? `- 技能已移除: ${fileName}`
+                : `- Skill removed: ${fileName}`,
+            ),
+          );
           await linker.removeSkillFromAll(fileName);
         }
       } catch (error: unknown) {
         console.error(
           pc.red(
-            `❌ 处理监视事件失败: ${error instanceof Error ? error.message : String(error)}`,
+            isChinese
+              ? `❌ 处理监视事件失败: ${error instanceof Error ? error.message : String(error)}`
+              : `❌ Failed to process watch event: ${error instanceof Error ? error.message : String(error)}`,
           ),
         );
       }

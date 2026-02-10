@@ -1,52 +1,50 @@
 # Skillink 🚀
 
-**Skillink** 是一个为 AI 时代打造的技能管理工具。它允许你在一个统一的目录（`.agents/skills`）中编写 AI 技能（Skills），并利用符号链接（Symlink/Junction）技术，即时同步到各种 AI 工具（如 Cursor、Windsurf、VSCode、Gemini）的配置目录中。
+[English](./README.md) | [简体中文](./README.zh-CN.md)
 
-> **核心理念：一次编写，处处生效。**
+**Skillink** is a skill linker for AI tools.  
+Write skills in one place (`.agents/skills`) and sync to multiple tool directories with symlinks/junctions.
 
-## ✨ 特性
+> Core idea: **Write once, use everywhere.**
 
-- **🎯 极简架构**：基于 Node.js 20+ 和 TypeScript 5.x，性能卓越。
-- **🔗 零克隆开销**：采用符号链接技术，目标目录的文件只是源文件的引用。修改源文件，AI 工具立即感知，无需等待同步。
-- **🛠️ 极致 DX**：
-  - **交互式初始化**：一键引导配置。
-  - **自动探测与创建**：自动管理 AI 工具的配置目录。
-  - **实时监视**：支持 `--watch` 模式，动态响应技能的增删。
-- **🛡️ 安全可靠**：仅操作符号链接，不轻易改动或删除用户的原始文件。
+## Features
 
-## 📦 安装
+- Minimal architecture with Node.js 20+ and TypeScript
+- Symlink-based sync (no copy, instant effect)
+- Interactive `init` flow
+- `sync --watch` for real-time skill folder changes
+- Safe clean behavior (only removes links under source boundary)
+- CLI localization via config (`en` / `zh-CN`)
 
-推荐作为开发依赖安装到项目中：
+## Install
+
+Install as a dev dependency:
 
 ```bash
-# 使用 pnpm
+# pnpm
 pnpm add -D @boses/skillink
 
-# 使用 npm
+# npm
 npm install -D @boses/skillink
 
-# 使用 yarn
+# yarn
 yarn add -D @boses/skillink
 ```
 
-## 🚀 快速开始
+## Quick Start
 
-### 1. 初始化项目
-
-在项目根目录下运行：
+### 1) Initialize
 
 ```bash
 npx skillink init
 ```
 
-按照交互提示选择你正在使用的 AI 工具。该命令会自动：
+The first step in `init` asks language (`English / 简体中文`), then it creates:
 
-- 创建 `.agents/skills` 目录并添加一个示例技能。
-- 生成 `skillink.config.ts` 配置文件。
+- `.agents/skills` (with an example skill)
+- `skillink.config.ts`
 
-### 2. 编写技能
-
-在 `.agents/skills` 目录下创建子文件夹，并在其中编写 `SKILL.md`：
+### 2) Write skills
 
 ```text
 .agents/skills/
@@ -54,43 +52,43 @@ npx skillink init
     └── SKILL.md
 ```
 
-### 3. 同步到工具
+### 3) Sync
 
 ```bash
 npx skillink sync
 ```
 
-想要在开发时自动同步新增的技能？运行：
+Watch mode:
 
 ```bash
 npx skillink sync --watch
 ```
 
-## 🛠️ 命令详解
+## Commands
 
-| 命令     | 描述                                                                             |
-| :------- | :------------------------------------------------------------------------------- |
-| `init`   | 初始化项目环境，生成 `.agents/skills` 和配置文件。                               |
-| `sync`   | 将技能同步到所有配置的目标工具中。支持 `-w, --watch` 模式。                      |
-| `status` | 检查并显示当前所有技能与目标工具的同步状态。                                     |
-| `clean`  | 移除所有由 Skillink 创建的符号链接，恢复环境。                                   |
-| `check`  | 从 npm `versions` 列表解析最新稳定语义化版本并检查更新（不依赖 `latest` 标签）。 |
+| Command  | Description                                                                          |
+| :------- | :----------------------------------------------------------------------------------- |
+| `init`   | Initialize project and create config.                                                |
+| `sync`   | Sync skills to all enabled targets (`--watch` supported).                            |
+| `status` | Show detailed sync status.                                                           |
+| `clean`  | Remove generated symlinks from configured targets.                                   |
+| `check`  | Check updates by semantic versions from npm `versions` (no `latest` tag dependency). |
 
-## ⚙️ 配置说明 (`skillink.config.ts`)
+## Configuration (`skillink.config.ts`)
 
 ```typescript
 import { defineConfig } from '@boses/skillink';
 
 export default defineConfig({
-  // 技能源目录
+  // CLI locale: 'en' | 'zh-CN' (default: 'en')
+  locale: 'en',
+  // Skills source directory
   source: '.agents/skills',
-  // 同步目标列表
+  // Sync targets
   targets: [
     {
       name: 'cursor',
       path: '.cursor/rules',
-      // 是否启用该目标（默认为 true）
-      // 设置为 false 后，sync 和 status 命令将忽略此目标
       enabled: true,
     },
     {
@@ -102,12 +100,12 @@ export default defineConfig({
 });
 ```
 
-## 🧩 Git 使用建议
+## Git Recommendation
 
-- 推荐提交：`skillink.config.ts`、`.agents/skills/**`
-- 不建议提交：各目标目录中的链接产物（如 `.cursor/rules`、`.gemini/skills` 等）
-- 你可以在 `init` 后根据提示将目标目录加入 `.gitignore`
+- Commit: `skillink.config.ts`, `.agents/skills/**`
+- Avoid committing generated link targets (for example: `.cursor/rules`, `.gemini/skills`)
+- `init` will remind you to add target directories to `.gitignore`
 
-## 📄 许可证
+## License
 
 MIT

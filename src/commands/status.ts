@@ -4,6 +4,7 @@ import pc from 'picocolors';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { isChineseLocale, resolveLocale } from '@/utils/locale.js';
 
 /**
  * 状态命令：显示所有技能的同步状态
@@ -13,19 +14,29 @@ export async function statusCommand(options: { cwd?: string }) {
 
   // 1. 加载配置
   const config = await loadConfig(cwd);
+  const locale = resolveLocale(config?.locale);
+  const isChinese = isChineseLocale(locale);
   if (!config) {
-    logger.error('未找到配置文件。请先运行 "skillink init"。');
+    logger.error(
+      isChinese
+        ? '未找到配置文件。请先运行 "skillink init"。'
+        : 'Configuration file not found. Run "skillink init" first.',
+    );
     return;
   }
 
-  logger.title('Skillink 同步状态');
+  logger.title(isChinese ? 'Skillink 同步状态' : 'Skillink Sync Status');
   logger.newline();
 
   const sourcePath = path.resolve(cwd, config.source || '.agents/skills');
-  logger.info(`源目录: ${sourcePath}`);
+  logger.info(
+    isChinese ? `源目录: ${sourcePath}` : `Source directory: ${sourcePath}`,
+  );
 
   if (!existsSync(sourcePath)) {
-    logger.error('源目录不存在！');
+    logger.error(
+      isChinese ? '源目录不存在！' : 'Source directory does not exist!',
+    );
     return;
   }
 
@@ -33,10 +44,14 @@ export async function statusCommand(options: { cwd?: string }) {
   const validSkills = skills
     .filter((s) => s.isDirectory() && !s.name.startsWith('.'))
     .map((s) => s.name);
-  logger.gray(`找到 ${validSkills.length} 个技能。`);
+  logger.gray(
+    isChinese
+      ? `找到 ${validSkills.length} 个技能。`
+      : `Found ${validSkills.length} skill(s).`,
+  );
   logger.newline();
 
-  logger.info('目标工具:');
+  logger.info(isChinese ? '目标工具:' : 'Targets:');
 
   for (const target of config.targets) {
     if (target.enabled === false) continue;
@@ -45,7 +60,13 @@ export async function statusCommand(options: { cwd?: string }) {
     console.log(`${pc.bold(target.name)} [${targetDir}]`);
 
     if (!existsSync(targetDir)) {
-      console.log(pc.red('  - 目录缺失（运行 sync 命令以创建）'));
+      console.log(
+        pc.red(
+          isChinese
+            ? '  - 目录缺失（运行 sync 命令以创建）'
+            : '  - Missing directory (run sync to create it)',
+        ),
+      );
       continue;
     }
 
@@ -88,20 +109,53 @@ export async function statusCommand(options: { cwd?: string }) {
       }
     }
 
-    if (missingCount > 0) console.log(pc.yellow(`  - ${missingCount} 个缺失`));
-    if (brokenCount > 0) console.log(pc.red(`  - ${brokenCount} 个失效链接`));
+    if (missingCount > 0)
+      console.log(
+        pc.yellow(
+          isChinese
+            ? `  - ${missingCount} 个缺失`
+            : `  - ${missingCount} missing`,
+        ),
+      );
+    if (brokenCount > 0)
+      console.log(
+        pc.red(
+          isChinese
+            ? `  - ${brokenCount} 个失效链接`
+            : `  - ${brokenCount} broken link(s)`,
+        ),
+      );
     if (mismatchedCount > 0)
-      console.log(pc.red(`  - ${mismatchedCount} 个错误指向链接`));
+      console.log(
+        pc.red(
+          isChinese
+            ? `  - ${mismatchedCount} 个错误指向链接`
+            : `  - ${mismatchedCount} mismatched link(s)`,
+        ),
+      );
     if (occupiedCount > 0)
-      console.log(pc.yellow(`  - ${occupiedCount} 个同名占位（非链接）`));
-    if (syncedCount > 0) console.log(pc.green(`  - ${syncedCount} 个已同步`));
+      console.log(
+        pc.yellow(
+          isChinese
+            ? `  - ${occupiedCount} 个同名占位（非链接）`
+            : `  - ${occupiedCount} occupied by non-link`,
+        ),
+      );
+    if (syncedCount > 0)
+      console.log(
+        pc.green(
+          isChinese
+            ? `  - ${syncedCount} 个已同步`
+            : `  - ${syncedCount} synced`,
+        ),
+      );
     if (
       missingCount === 0 &&
       brokenCount === 0 &&
       mismatchedCount === 0 &&
       occupiedCount === 0
     )
-      console.log(pc.green('  状态良好！'));
+      console.log(pc.green(isChinese ? '  状态良好！' : '  Healthy!'));
 
     console.log('');
   }

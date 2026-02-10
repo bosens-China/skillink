@@ -1,3 +1,5 @@
+export type Locale = 'en' | 'zh-CN';
+
 export interface SyncTarget {
   /** 目标名称（如 'Cursor', 'VSCode'） */
   name: string;
@@ -10,6 +12,8 @@ export interface SyncTarget {
 export interface SkillinkConfig {
   /** 技能源目录（默认为 .agents/skills） */
   source?: string;
+  /** CLI 输出语言（默认 en） */
+  locale?: Locale;
   /** 同步目标列表 */
   targets: SyncTarget[];
 }

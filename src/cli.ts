@@ -11,18 +11,29 @@ const cli = cac('skillink');
 
 cli.version(currentVersion);
 
-cli.command('init', '初始化 Skillink 配置').action(() => initCommand());
+cli
+  .command(
+    'init',
+    'Initialize Skillink configuration / 初始化 Skillink 配置',
+  )
+  .action(() => initCommand());
 
 cli
-  .command('sync', '将技能同步到目标工具')
-  .option('-w, --watch', '监视文件变更')
+  .command('sync', 'Sync skills to configured targets / 同步技能到目标工具')
+  .option('-w, --watch', 'Watch file changes / 监视文件变更')
   .action((options) => syncCommand(options));
 
-cli.command('status', '显示同步状态').action(() => statusCommand({}));
+cli
+  .command('status', 'Show sync status / 显示同步状态')
+  .action(() => statusCommand({}));
 
-cli.command('clean', '移除所有生成的符号链接').action(() => cleanCommand());
+cli
+  .command('clean', 'Remove generated symlinks / 移除生成的符号链接')
+  .action(() => cleanCommand());
 
-cli.command('check', '检查版本更新').action(() => checkCommand());
+cli
+  .command('check', 'Check package updates / 检查版本更新')
+  .action(() => checkCommand());
 
 cli.help();
 
