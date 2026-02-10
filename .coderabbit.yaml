@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 # CodeRabbit 配置文件
 # 文档：https://docs.coderabbit.ai/guides/configure-coderabbit
 
@@ -6,7 +7,17 @@ language: zh-CN
 reviews:
   profile: chill
   
-  auto_reply: true
+  # 自动审核配置（关键）
+  auto_review:
+    enabled: true           # 开启自动审核
+    drafts: false           # 不审核 draft PR
+    auto_incremental_review: true  # 每次推送自动增量审核
+    
+  request_changes_workflow: false
+  high_level_summary: true  # 生成高级摘要
+  poem: true                # 生成一首有趣的诗
+  review_status: true       # 显示审核状态
+  
   suggest_code_changes: true
   summarize: true
   generate_release_notes: true
@@ -76,6 +87,7 @@ reviews:
 chat:
   auto_reply: true
 
+# 忽略标签配置
 ignore:
   labels:
     - "ignore-coderabbit"
