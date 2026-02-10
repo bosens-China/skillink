@@ -15,17 +15,33 @@ export interface UpdateInfo {
   name: string;
 }
 
+interface NpmPackumentResponse {
+  versions?: Record<string, unknown>;
+}
+
 /**
- * 检查更新
- * @returns 更新信息，如果请求失败则抛出错误
+ * 仅基于 versions 字段解析最大语义化版本（不依赖 latest/tag）
+ */
+export function resolveLatestSemverVersion(versions: string[]): string {
+  const validStableVersions = versions.filter(
+    (version) => semver.valid(version) && semver.prerelease(version) === null,
+  );
+  const sorted = semver.rsort(validStableVersions);
+  if (sorted.length === 0) {
+    throw new Error('未找到可用的稳定语义化版本');
+  }
+  return sorted[0];
+}
+
+/**
+ * 检查更新（仅比较语义化版本，不使用 latest 标签）
  */
 export async function checkUpdate(): Promise<UpdateInfo> {
   const controller = new AbortController();
-  // 显式命令可以稍微宽容一点超时，比如 3 秒
   const timeoutId = setTimeout(() => controller.abort(), 3000);
 
   try {
-    const res = await fetch(`https://registry.npmjs.org/${pkg.name}/latest`, {
+    const res = await fetch(`https://registry.npmjs.org/${pkg.name}`, {
       signal: controller.signal,
     });
 
@@ -35,14 +51,16 @@ export async function checkUpdate(): Promise<UpdateInfo> {
       throw new Error(`请求失败: ${res.status} ${res.statusText}`);
     }
 
-    const data = (await res.json()) as { version: string };
-    const latestVersion = data.version;
+    const data = (await res.json()) as NpmPackumentResponse;
+    const latestVersion = resolveLatestSemverVersion(
+      Object.keys(data.versions ?? {}),
+    );
 
     return {
       latest: latestVersion,
       current: currentVersion,
       hasUpdate: semver.gt(latestVersion, currentVersion),
-      name: pkg.name,
+      name: pkgName,
     };
   } catch (error) {
     clearTimeout(timeoutId);

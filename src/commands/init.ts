@@ -20,7 +20,7 @@ const DEFAULT_TARGETS = [
   { name: 'Cursor', value: 'cursor', path: '.cursor/rules' },
   { name: 'Windsurf', value: 'windsurf', path: '.windsurf/rules' },
   { name: 'VSCode', value: 'vscode', path: '.vscode/skills' },
-  { name: 'Gemini', value: 'gemini', path: '.gemini/modules' },
+  { name: 'Gemini', value: 'gemini', path: '.gemini/skills' },
 ];
 
 /**
@@ -93,5 +93,11 @@ ${selectedTargets
 
   await fs.writeFile(configFile, configContent);
   console.log('✅ 已创建 skillink.config.ts');
+  if (selectedTargets.length > 0) {
+    const targetPaths = selectedTargets.map((t) => t.path).join(', ');
+    console.log(
+      `💡 Git 建议：请将目标目录（${targetPaths}）加入 .gitignore，只提交 .agents/skills 与配置文件。`,
+    );
+  }
   console.log('\n👉 运行 "npx skillink sync" 开始同步！');
 }

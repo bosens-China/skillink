@@ -52,31 +52,55 @@ export async function statusCommand(options: { cwd?: string }) {
     let syncedCount = 0;
     let missingCount = 0;
     let brokenCount = 0;
+    let mismatchedCount = 0;
+    let occupiedCount = 0;
 
     for (const skill of validSkills) {
       const linkPath = path.join(targetDir, skill);
+      const sourceSkillPath = path.resolve(sourcePath, skill);
 
-      if (!existsSync(linkPath)) {
-        // 链接可能存在但指向无效（Broken）
+      try {
+        const stats = await fs.lstat(linkPath);
+
+        if (!stats.isSymbolicLink()) {
+          // 同名普通文件/目录会阻塞同步，单独统计便于排障
+          occupiedCount++;
+          continue;
+        }
+
         try {
-          const stats = await fs.lstat(linkPath);
-          if (stats.isSymbolicLink()) {
-            brokenCount++;
+          const currentTarget = await fs.readlink(linkPath);
+          const absCurrentTarget = path.resolve(targetDir, currentTarget);
+          if (absCurrentTarget === sourceSkillPath) {
+            syncedCount++;
           } else {
-            missingCount++;
+            mismatchedCount++;
           }
         } catch {
-          missingCount++;
+          brokenCount++;
         }
-      } else {
-        syncedCount++;
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          missingCount++;
+          continue;
+        }
+        missingCount++;
       }
     }
 
     if (missingCount > 0) console.log(pc.yellow(`  - ${missingCount} 个缺失`));
     if (brokenCount > 0) console.log(pc.red(`  - ${brokenCount} 个失效链接`));
+    if (mismatchedCount > 0)
+      console.log(pc.red(`  - ${mismatchedCount} 个错误指向链接`));
+    if (occupiedCount > 0)
+      console.log(pc.yellow(`  - ${occupiedCount} 个同名占位（非链接）`));
     if (syncedCount > 0) console.log(pc.green(`  - ${syncedCount} 个已同步`));
-    if (missingCount === 0 && brokenCount === 0)
+    if (
+      missingCount === 0 &&
+      brokenCount === 0 &&
+      mismatchedCount === 0 &&
+      occupiedCount === 0
+    )
       console.log(pc.green('  状态良好！'));
 
     console.log('');

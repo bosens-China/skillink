@@ -53,7 +53,7 @@ export async function syncCommand(options: { watch?: boolean; cwd?: string }) {
     // 只监视源目录的一级子目录（技能目录）的增加和删除
     const watcher = chokidar.watch(sourceDir, {
       ignoreInitial: true,
-      depth: 0,
+      depth: 1,
       awaitWriteFinish: {
         stabilityThreshold: 100,
         pollInterval: 100,
@@ -61,14 +61,26 @@ export async function syncCommand(options: { watch?: boolean; cwd?: string }) {
     });
 
     watcher.on('all', async (event, filePath) => {
-      const fileName = path.basename(filePath);
+      // 仅处理源目录下“一级子目录”的增删事件
+      if (path.dirname(filePath) !== sourceDir) return;
 
-      if (event === 'addDir') {
-        console.log(pc.green(`+ 检测到新技能: ${fileName}`));
-        await linker.syncSkillToAll(fileName);
-      } else if (event === 'unlinkDir') {
-        console.log(pc.red(`- 技能已移除: ${fileName}`));
-        await linker.removeSkillFromAll(fileName);
+      const fileName = path.basename(filePath);
+      if (!fileName || fileName.startsWith('.')) return;
+
+      try {
+        if (event === 'addDir') {
+          console.log(pc.green(`+ 检测到新技能: ${fileName}`));
+          await linker.syncSkillToAll(fileName);
+        } else if (event === 'unlinkDir') {
+          console.log(pc.red(`- 技能已移除: ${fileName}`));
+          await linker.removeSkillFromAll(fileName);
+        }
+      } catch (error: unknown) {
+        console.error(
+          pc.red(
+            `❌ 处理监视事件失败: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
       }
     });
   }

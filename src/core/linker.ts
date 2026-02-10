@@ -182,7 +182,12 @@ export class Linker {
    * 清理所有由 Skillink 创建的符号链接
    */
   async cleanAll(): Promise<void> {
-    const targets = this.config.targets.filter((t) => t.enabled !== false);
+    // clean 命令应清理所有配置目标（包括已 disabled 的历史目标）
+    const targets = this.config.targets;
+    const absSourceDir = path.resolve(
+      this.root,
+      this.config.source || '.agents/skills',
+    );
 
     for (const target of targets) {
       const targetDir = path.resolve(this.root, target.path);
@@ -195,13 +200,13 @@ export class Linker {
           try {
             const linkTarget = await fs.readlink(itemPath);
             const absLinkTarget = path.resolve(targetDir, linkTarget);
-            const absSourceDir = path.resolve(
-              this.root,
-              this.config.source || '.agents/skills',
-            );
+            const relative = path.relative(absSourceDir, absLinkTarget);
 
-            // 如果链接指向源目录，则删除
-            if (absLinkTarget.startsWith(absSourceDir)) {
+            // 仅删除确实位于源目录内的链接，避免前缀误判导致误删
+            if (
+              relative === '' ||
+              (!relative.startsWith('..') && !path.isAbsolute(relative))
+            ) {
               await fs.unlink(itemPath);
               console.log(`已从 ${target.name} 移除 ${item.name}`);
             }

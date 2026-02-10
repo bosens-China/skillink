@@ -12,8 +12,6 @@ export interface SkillinkConfig {
   source?: string;
   /** 同步目标列表 */
   targets: SyncTarget[];
-  /** 忽略的文件模式（暂未使用） */
-  ignore?: string[];
 }
 
 export interface Skill {
