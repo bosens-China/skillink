@@ -73,7 +73,7 @@ export async function initCommand(cwd: string = process.cwd()) {
     }
   }
 
-  const configContent = `import { defineConfig } from 'skillink';
+  const configContent = `import { defineConfig } from '@boses/skillink';
 
 export default defineConfig({
   source: '.agents/skills',
@@ -93,5 +93,5 @@ ${selectedTargets
 
   await fs.writeFile(configFile, configContent);
   console.log('✅ 已创建 skillink.config.ts');
-  console.log('\n👉 运行 "npx @boses/skillink sync" 开始同步！');
+  console.log('\n👉 运行 "npx skillink sync" 开始同步！');
 }

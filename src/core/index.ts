@@ -1,2 +1,2 @@
 export * from './config.js';
-// Add linker logic later
+export * from './linker.js';

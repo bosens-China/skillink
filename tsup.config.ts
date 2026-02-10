@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    cli: 'src/cli.ts',
     'bin/skillink': 'src/bin/skillink.ts',
   },
   format: ['esm'],

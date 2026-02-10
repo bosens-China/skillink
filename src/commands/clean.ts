@@ -3,10 +3,15 @@ import { Linker } from '@/core/linker.js';
 import { logger } from '@/utils/logger.js';
 import { confirm } from '@inquirer/prompts';
 
+interface CleanOptions {
+  cwd?: string;
+}
+
 /**
  * 清理命令：移除所有生成的符号链接
  */
-export async function cleanCommand(cwd: string = process.cwd()) {
+export async function cleanCommand(options: CleanOptions = {}) {
+  const cwd = options.cwd || process.cwd();
   const config = await loadConfig(cwd);
   if (!config) {
     logger.error('未找到配置。');

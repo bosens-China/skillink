@@ -28,7 +28,7 @@ export async function checkUpdate(): Promise<UpdateInfo> {
     const res = await fetch(`https://registry.npmjs.org/${pkg.name}/latest`, {
       signal: controller.signal,
     });
-    
+
     clearTimeout(timeoutId);
 
     if (!res.ok) {

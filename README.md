@@ -16,23 +16,17 @@
 
 ## 📦 安装
 
-推荐全局安装以便在任何项目中使用：
+推荐作为开发依赖安装到项目中：
 
 ```bash
 # 使用 pnpm
-pnpm add -g @boses/skillink
+pnpm add -D @boses/skillink
 
 # 使用 npm
-npm install -g @boses/skillink
+npm install -D @boses/skillink
 
 # 使用 yarn
-yarn global add @boses/skillink
-```
-
-或者使用 `npx` 快速试用：
-
-```bash
-npx @boses/skillink init
+yarn add -D @boses/skillink
 ```
 
 ## 🚀 快速开始
@@ -42,7 +36,7 @@ npx @boses/skillink init
 在项目根目录下运行：
 
 ```bash
-skillink init
+npx skillink init
 ```
 
 按照交互提示选择你正在使用的 AI 工具。该命令会自动：
@@ -62,13 +56,13 @@ skillink init
 ### 3. 同步到工具
 
 ```bash
-skillink sync
+npx skillink sync
 ```
 
 想要在开发时自动同步新增的技能？运行：
 
 ```bash
-skillink sync --watch
+npx skillink sync --watch
 ```
 
 ## 🛠️ 命令详解
