@@ -21,6 +21,18 @@ afterEach(async () => {
 });
 
 describe('createSymlink', () => {
+  it('文件链接可创建（Windows 下允许降级为硬链接）', async () => {
+    const root = await createTempDir();
+    const sourceFile = path.join(root, 'AGENTS.md');
+    const targetFile = path.join(root, 'CLAUDE.md');
+    await fs.writeFile(sourceFile, '# Agents');
+
+    await createSymlink(sourceFile, targetFile);
+
+    const content = await fs.readFile(targetFile, 'utf-8');
+    expect(content).toBe('# Agents');
+  });
+
   it('可以修复失效符号链接', async () => {
     const root = await createTempDir();
     const sourceDir = path.join(root, 'source-skill');

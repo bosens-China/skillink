@@ -67,6 +67,11 @@ export class Linker {
    * 创建或修复符号链接（文件和目录通用）
    */
   private async syncLink(fromPath: string, toPath: string): Promise<boolean> {
+    // 源和目标相同路径时视为已同步，避免误删源文件
+    if (path.resolve(fromPath) === path.resolve(toPath)) {
+      return true;
+    }
+
     const fromStats = await fs.lstat(fromPath);
     const fromType = fromStats.isDirectory() ? '目录' : '文件';
 
@@ -131,6 +136,14 @@ export class Linker {
           }
 
           await fs.rm(toPath, { recursive: true, force: true });
+        } else if (!fromStats.isDirectory() && !toStats.isDirectory()) {
+          const isSameFile = fromStats.dev === toStats.dev && fromStats.ino === toStats.ino;
+          // 文件映射：如果不是同一文件（例如源文件被替换后），自动重建链接以保持同步
+          if (!isSameFile) {
+            await fs.unlink(toPath);
+          } else {
+            return true;
+          }
         } else {
           throw new Error(
             t(

@@ -118,7 +118,24 @@ export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
     { links: validMappings, locale: config.locale },
     { autoConfirm, locale, configLocale: config.locale },
   );
-  const syncedCount = await linker.sync();
+  let syncedCount: number;
+  try {
+    syncedCount = await linker.sync();
+  } catch (error: unknown) {
+    const err = error as NodeJS.ErrnoException;
+    if (process.platform === 'win32' && err.code === 'EPERM') {
+      throw new Error(
+        t(
+          '创建链接失败（Windows 权限限制）。请开启开发者模式，或以管理员权限运行终端后重试。',
+          'Failed to create link due to Windows permission restrictions. Enable Developer Mode, or run terminal as Administrator and retry.',
+          locale,
+          config.locale,
+        ),
+        { cause: error },
+      );
+    }
+    throw error;
+  }
   console.log(
     pc.green(
       t(

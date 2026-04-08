@@ -68,7 +68,18 @@ export async function createSymlink(
     }
   }
 
-  await fs.symlink(target, linkPath, type);
+  try {
+    await fs.symlink(target, linkPath, type);
+  } catch (error: unknown) {
+    const err = error as NodeJS.ErrnoException;
+    // Windows 下文件符号链接可能因权限受限失败（EPERM）：
+    // 尝试降级为硬链接，尽量保证默认场景可用。
+    if (process.platform === 'win32' && !isDir && err.code === 'EPERM') {
+      await fs.link(target, linkPath);
+      return;
+    }
+    throw error;
+  }
 }
 
 /**

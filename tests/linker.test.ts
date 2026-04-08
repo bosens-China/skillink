@@ -168,4 +168,27 @@ describe('Linker.sync', () => {
       'Target path exists with mismatched type: source is file, target is directory',
     );
   });
+
+  it('文件映射：源文件被替换后再次同步应重建链接', async () => {
+    const root = await createTempDir();
+    const fromPath = path.join(root, 'AGENTS.md');
+    const toPath = path.join(root, 'CLAUDE.md');
+    await fs.writeFile(fromPath, 'v1');
+
+    const config: SkillinkConfig = {
+      links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
+      locale: 'en',
+    };
+
+    const linker = new Linker(root, config, { locale: 'en', configLocale: 'en' });
+    await linker.sync();
+
+    const tmpPath = path.join(root, 'AGENTS.tmp.md');
+    await fs.writeFile(tmpPath, 'v2');
+    await fs.rename(tmpPath, fromPath);
+
+    await linker.sync();
+    const content = await fs.readFile(toPath, 'utf-8');
+    expect(content).toBe('v2');
+  });
 });
