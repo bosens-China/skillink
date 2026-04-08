@@ -10,7 +10,7 @@
 ## 快速开始
 
 ```bash
-npx skillink
+npx @boses/skillink
 ```
 
 就这么简单。工具会自动执行：
@@ -23,7 +23,7 @@ npx skillink
 ### 跳过确认
 
 ```bash
-npx skillink --yes
+npx @boses/skillink --yes
 ```
 
 ## 配置
@@ -31,7 +31,7 @@ npx skillink --yes
 首次运行后可编辑 `skillink.config.ts`：
 
 ```typescript
-import { defineConfig } from 'skillink';
+import { defineConfig } from '@boses/skillink';
 
 export default defineConfig({
   locale: 'auto', // 'auto' | 'en' | 'zh-CN'
@@ -64,7 +64,7 @@ links: [
 ## 工作原理
 
 - **文件映射**：`AGENTS.md` → `CLAUDE.md` 创建单个符号链接
-- **目录映射**：`.agents` → `.claude` 将源目录内每个文件分别创建符号链接
+- **目录映射**：`.agents` → `.claude` 创建整个目录的单个符号链接
 - **一对多**：一个源可以链接到多个目标
 - **幂等性**：可安全重复执行，已正确链接的文件会自动跳过
 - **失效清理**：自动移除目标目录中源端已不存在的符号链接
@@ -81,14 +81,14 @@ skillink --help          # 显示帮助
 ## 编程接口
 
 ```typescript
-import { defineConfig, loadConfig } from 'skillink';
+import { defineConfig, loadConfig } from '@boses/skillink';
 ```
 
 ## Git 建议
 
 - 推荐提交：`skillink.config.ts`、`AGENTS.md`、`.agents/**`
 - 忽略：链接目标（如 `CLAUDE.md`、`.claude/`）
-- `npx skillink` 会提示将这些路径添加到 `.gitignore`
+- `npx @boses/skillink` 会提示将这些路径添加到 `.gitignore`
 
 ## 许可证
 

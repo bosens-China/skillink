@@ -39,20 +39,20 @@ export function isSymlink(p: string): boolean {
  */
 export async function createSymlink(
   target: string,
-  path: string,
+  linkPath: string,
 ): Promise<void> {
   // Windows 下目录使用 'junction'，其他系统使用 'dir'
   const type = process.platform === 'win32' ? 'junction' : 'dir';
 
   // 使用 lstat 判断路径是否存在，这样可正确识别损坏的符号链接
   try {
-    const stats = await fs.lstat(path);
+    const stats = await fs.lstat(linkPath);
     if (stats.isSymbolicLink()) {
       // 如果是已存在的链接（包括失效链接），先删除再重建
-      await fs.unlink(path);
+      await fs.unlink(linkPath);
     } else {
       // 如果是普通文件或目录，抛出错误以防误删
-      throw new Error(`路径 ${path} 已存在且不是符号链接，请手动清理。`);
+      throw new Error(`路径 ${linkPath} 已存在且不是符号链接，请手动清理。`);
     }
   } catch (error: unknown) {
     // 仅当路径不存在时忽略，其他异常继续抛出
@@ -61,15 +61,15 @@ export async function createSymlink(
     }
   }
 
-  await fs.symlink(target, path, type);
+  await fs.symlink(target, linkPath, type);
 }
 
 /**
  * 安全移除符号链接
  */
-export async function removeSymlink(path: string): Promise<void> {
-  if (isSymlink(path)) {
-    await fs.unlink(path);
+export async function removeSymlink(linkPath: string): Promise<void> {
+  if (isSymlink(linkPath)) {
+    await fs.unlink(linkPath);
   }
 }
 

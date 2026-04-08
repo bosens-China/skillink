@@ -10,7 +10,7 @@ As AI tools gradually unify on `AGENTS.md` and `.agents/`, some (like Claude Cod
 ## Quick Start
 
 ```bash
-npx skillink
+npx @boses/skillink
 ```
 
 That's it. The tool will:
@@ -23,7 +23,7 @@ That's it. The tool will:
 ### Skip Prompts
 
 ```bash
-npx skillink --yes
+npx @boses/skillink --yes
 ```
 
 ## Configuration
@@ -31,7 +31,7 @@ npx skillink --yes
 After first run, edit `skillink.config.ts`:
 
 ```typescript
-import { defineConfig } from 'skillink';
+import { defineConfig } from '@boses/skillink';
 
 export default defineConfig({
   locale: 'auto', // 'auto' | 'en' | 'zh-CN'
@@ -64,7 +64,7 @@ links: [
 ## How It Works
 
 - **File mapping**: `AGENTS.md` → `CLAUDE.md` creates a single symlink
-- **Directory mapping**: `.agents` → `.claude` symlinks each file inside the source directory individually
+- **Directory mapping**: `.agents` → `.claude` creates a single directory symlink
 - **One-to-many**: A single source can be linked to multiple targets
 - **Idempotent**: Safe to run multiple times, skips already-correct links
 - **Stale cleanup**: Removes symlinks in target that no longer exist in source
@@ -81,14 +81,14 @@ skillink --help          # Show help
 ## Programmatic Usage
 
 ```typescript
-import { defineConfig, loadConfig } from 'skillink';
+import { defineConfig, loadConfig } from '@boses/skillink';
 ```
 
 ## Git Recommendation
 
 - Commit: `skillink.config.ts`, `AGENTS.md`, `.agents/**`
 - Ignore: linked targets (e.g. `CLAUDE.md`, `.claude/`)
-- `npx skillink` will prompt to add these to `.gitignore`
+- `npx @boses/skillink` will prompt to add these to `.gitignore`
 
 ## License
 

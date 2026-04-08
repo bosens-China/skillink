@@ -37,8 +37,6 @@ export class Linker {
       return;
     }
 
-    const stats = await fs.lstat(fromPath);
-
     await this.syncLink(fromPath, toPath);
   }
 

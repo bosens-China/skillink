@@ -4,9 +4,8 @@ import { confirm } from '@inquirer/prompts';
 import pc from 'picocolors';
 import { loadConfig, hasConfigFile, createDefaultConfig } from '@/core/config.js';
 import { Linker } from '@/core/linker.js';
-import { resolveLocale, isChineseLocale, t } from '@/utils/locale.js';
+import { resolveLocale, t } from '@/utils/locale.js';
 import { addToGitignore } from '@/utils/gitignore.js';
-import type { Locale } from '@/types/index.js';
 
 /**
  * 主命令：init + sync 一体化流程
@@ -28,7 +27,6 @@ export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
   // 2. 加载配置
   const config = await loadConfig(cwd);
   const locale = resolveLocale(config.locale);
-  const isChinese = isChineseLocale(locale);
 
   // 3. 检查源文件，收集有效的映射和缺失的映射
   const validMappings: typeof config.links = [];
