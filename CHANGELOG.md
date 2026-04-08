@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/bosens-China/skillink/compare/v2.0.0...v2.0.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* 修复引入名称和文档描述错误 ([df8b635](https://github.com/bosens-China/skillink/commit/df8b6359d0ab733141c008e3e3f35278d3f707d0))
+
 ## [2.0.0](https://github.com/bosens-China/skillink/compare/v1.1.0...v2.0.0) (2026-04-08)
 
 
