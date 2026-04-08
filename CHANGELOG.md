@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.3](https://github.com/bosens-China/skillink/compare/v2.1.2...v2.1.3) (2026-04-08)
+
+
+### Bug Fixes
+
+* 修复window下权限不足问题 ([98acbdb](https://github.com/bosens-China/skillink/commit/98acbdbc5e9697939e8336538d4f80c1d46d1a69))
+
 ## [2.1.2](https://github.com/bosens-China/skillink/compare/v2.1.1...v2.1.2) (2026-04-08)
 
 
