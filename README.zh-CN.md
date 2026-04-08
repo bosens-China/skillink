@@ -31,15 +31,13 @@ npx @boses/skillink --yes
 首次运行后可编辑 `skillink.config.ts`：
 
 ```typescript
-import { defineConfig } from '@boses/skillink';
-
-export default defineConfig({
+export default {
   locale: 'auto', // 'auto' | 'en' | 'zh-CN'
   links: [
     { from: 'AGENTS.md', to: 'CLAUDE.md' },
     { from: '.agents', to: '.claude' },
   ],
-});
+};
 ```
 
 `links` 数组定义源文件/目录到目标的映射。一个源可以映射到多个目标：
@@ -101,10 +99,10 @@ skillink unlock .mcp.json
 在 `skillink.config.ts` 中配置需要加密的文件列表：
 
 ```typescript
-export default defineConfig({
+export default {
   // ...
   encrypt: ['.mcp.json', '.env'],
-});
+};
 ```
 
 - `lock` 读取文件内容，使用 AES-256-CBC 加密后写入 `.lock` 文件，原始文件保留

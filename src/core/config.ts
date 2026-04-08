@@ -54,15 +54,13 @@ export function hasConfigFile(cwd: string = process.cwd()): boolean {
  */
 export async function createDefaultConfig(cwd: string = process.cwd()): Promise<string> {
   const configPath = path.join(cwd, 'skillink.config.ts');
-  const content = `import { defineConfig } from '@boses/skillink';
-
-export default defineConfig({
+  const content = `export default {
   locale: 'auto',
   links: [
     { from: 'AGENTS.md', to: 'CLAUDE.md' },
     { from: '.agents', to: '.claude' },
   ],
-});
+};
 `;
   await fs.writeFile(configPath, content, 'utf-8');
   return configPath;

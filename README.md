@@ -31,15 +31,13 @@ npx @boses/skillink --yes
 After first run, edit `skillink.config.ts`:
 
 ```typescript
-import { defineConfig } from '@boses/skillink';
-
-export default defineConfig({
+export default {
   locale: 'auto', // 'auto' | 'en' | 'zh-CN'
   links: [
     { from: 'AGENTS.md', to: 'CLAUDE.md' },
     { from: '.agents', to: '.claude' },
   ],
-});
+};
 ```
 
 The `links` array maps source files/directories to targets. One source can map to multiple destinations:
@@ -101,10 +99,10 @@ skillink unlock .mcp.json
 Configure which files to encrypt in `skillink.config.ts`:
 
 ```typescript
-export default defineConfig({
+export default {
   // ...
   encrypt: ['.mcp.json', '.env'],
-});
+};
 ```
 
 - `lock` reads each file, encrypts it with AES-256-CBC, and writes a `.lock` file alongside the original
