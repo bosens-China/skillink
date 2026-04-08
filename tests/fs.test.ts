@@ -29,7 +29,12 @@ describe('createSymlink', () => {
     await fs.mkdir(sourceDir, { recursive: true });
 
     // 先创建一个指向不存在目录的失效链接
-    await fs.symlink(path.join(root, 'missing-skill'), brokenTarget, 'dir');
+    // Windows 下使用 junction，避免普通 dir symlink 的权限限制
+    await fs.symlink(
+      path.join(root, 'missing-skill'),
+      brokenTarget,
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
 
     await createSymlink(sourceDir, brokenTarget);
 

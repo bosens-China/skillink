@@ -33,16 +33,23 @@ export function isSymlink(p: string): boolean {
 }
 
 /**
- * 创建符号链接或 Junction
- * @param target 源路径（真实存在的目录）
- * @param path 链接路径（要创建的快捷方式）
+ * 创建符号链接
+ * @param target 源路径（真实存在的文件或目录）
+ * @param linkPath 链接路径（要创建的符号链接）
  */
 export async function createSymlink(
   target: string,
   linkPath: string,
 ): Promise<void> {
-  // Windows 下目录使用 'junction'，其他系统使用 'dir'
-  const type = process.platform === 'win32' ? 'junction' : 'dir';
+  // 根据源路径类型选择链接类型：
+  // - Windows: 目录使用 'junction'（兼容性更好），文件使用 'file'
+  // - 非 Windows: 目录使用 'dir'，文件使用 'file'
+  const targetStats = await fs.lstat(target);
+  const isDir = targetStats.isDirectory();
+  const type =
+    process.platform === 'win32'
+      ? (isDir ? 'junction' : 'file')
+      : (isDir ? 'dir' : 'file');
 
   // 使用 lstat 判断路径是否存在，这样可正确识别损坏的符号链接
   try {

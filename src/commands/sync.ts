@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { confirm } from '@inquirer/prompts';
+import { select } from '@inquirer/prompts';
 import pc from 'picocolors';
 import { loadConfig, hasConfigFile, createDefaultConfig } from '@/core/config.js';
 import { Linker } from '@/core/linker.js';
@@ -79,17 +79,26 @@ export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
         );
       }
     } else {
-      const answer = await confirm({
+      const answer = await select({
         message: t(
           `是否将 ${gitignoreEntries.join(', ')} 添加到 .gitignore？`,
           `Add ${gitignoreEntries.join(', ')} to .gitignore?`,
           locale,
           config.locale,
         ),
-        default: true,
+        choices: [
+          {
+            name: t('添加', 'Add', locale, config.locale),
+            value: 'yes',
+          },
+          {
+            name: t('跳过', 'Skip', locale, config.locale),
+            value: 'no',
+          },
+        ],
       });
 
-      if (answer) {
+      if (answer === 'yes') {
         const { added } = await addToGitignore(cwd, gitignoreEntries);
         if (added.length > 0) {
           console.log(
@@ -104,6 +113,20 @@ export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
   }
 
   // 5. 执行符号链接同步
-  const linker = new Linker(cwd, { links: validMappings });
-  await linker.sync();
+  const linker = new Linker(
+    cwd,
+    { links: validMappings, locale: config.locale },
+    { autoConfirm, locale, configLocale: config.locale },
+  );
+  const syncedCount = await linker.sync();
+  console.log(
+    pc.green(
+      t(
+        `同步完成，共处理 ${syncedCount} 条映射`,
+        `Sync completed, processed ${syncedCount} mapping(s)`,
+        locale,
+        config.locale,
+      ),
+    ),
+  );
 }

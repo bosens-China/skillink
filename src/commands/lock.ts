@@ -64,7 +64,12 @@ export async function lockCommand(options: { cwd?: string; files?: string[] }) {
 
     await fs.writeFile(lockPath, encrypted, 'utf-8');
 
-    console.log(pc.green(`+ ${file} -> ${path.basename(file)}.lock`) + pc.gray(' (encrypted)'));
+    console.log(
+      pc.green(`+ ${file} -> ${path.basename(file)}.lock`) +
+      pc.gray(
+        ` ${t('(已加密)', '(encrypted)', locale, config.locale)}`,
+      ),
+    );
     count++;
   }
 

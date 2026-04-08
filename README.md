@@ -78,6 +78,28 @@ skillink --version       # Show version
 skillink --help          # Show help
 ```
 
+### Sync Behavior
+
+- `--yes` mode is strict: if target directory already exists and is not a symlink, Skillink throws and stops
+- Interactive mode uses a dropdown (not y/n) for conflict choices
+- If target directory exists and is not a symlink, you can choose:
+  - `Delete and overwrite`
+  - `Skip this mapping`
+- Existing `.gitignore` entries are detected and skipped; duplicated entries in one run are de-duplicated
+- At the end of sync, Skillink prints how many mappings were processed
+
+### Error Message Locale
+
+- `locale: 'auto'`: bilingual output (Chinese + English)
+- `locale: 'zh-CN'`: Chinese only
+- `locale: 'en'`: English only
+
+### Windows Notes
+
+- Directory links use `junction` on Windows for better compatibility
+- File symlinks on Windows may require Developer Mode or elevated permissions
+- If file symlink creation fails with `EPERM`, enable Developer Mode or run terminal as Administrator
+
 ### Encrypt / Decrypt
 
 Use `lock` and `unlock` to encrypt sensitive config files (e.g. `.mcp.json`, `.env`) so they can be committed to version control without exposing secrets.

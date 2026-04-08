@@ -73,7 +73,12 @@ export async function unlockCommand(options: { cwd?: string; files?: string[] })
     const filePath = path.resolve(cwd, file);
     await fs.writeFile(filePath, decrypted, 'utf-8');
 
-    console.log(pc.green(`+ ${path.basename(file)}.lock -> ${file}`) + pc.gray(' (decrypted)'));
+    console.log(
+      pc.green(`+ ${path.basename(file)}.lock -> ${file}`) +
+      pc.gray(
+        ` ${t('(已还原)', '(decrypted)', locale, config.locale)}`,
+      ),
+    );
     count++;
   }
 

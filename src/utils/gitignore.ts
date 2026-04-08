@@ -3,6 +3,17 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 /**
+ * 规范化 .gitignore 条目，避免语义相同但写法不同导致重复
+ */
+function normalizeGitignoreEntry(entry: string): string {
+  const normalizedSlashes = entry.trim().replace(/\\/g, '/');
+  if (normalizedSlashes === '/') {
+    return normalizedSlashes;
+  }
+  return normalizedSlashes.replace(/\/+$/, '');
+}
+
+/**
  * 将条目追加到 .gitignore（跳过已存在的条目）
  */
 export async function addToGitignore(
@@ -24,14 +35,21 @@ export async function addToGitignore(
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith('#')),
   );
+  const existingNormalized = new Set(
+    Array.from(existingLines).map((line) => normalizeGitignoreEntry(line)),
+  );
 
   const linesToAdd: string[] = [];
-  for (const entry of entries) {
-    if (existingLines.has(entry)) {
+  const normalizedEntries = Array.from(
+    new Set(entries.map((entry) => normalizeGitignoreEntry(entry)).filter(Boolean)),
+  );
+  for (const entry of normalizedEntries) {
+    if (existingNormalized.has(entry)) {
       skipped.push(entry);
     } else {
       linesToAdd.push(entry);
       added.push(entry);
+      existingNormalized.add(entry);
     }
   }
 
