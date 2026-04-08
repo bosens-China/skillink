@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/bosens-China/skillink/compare/v2.1.0...v2.1.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* 修复运行配置报错 ([d4f02dc](https://github.com/bosens-China/skillink/commit/d4f02dc28977aef9c6334284f7f02be4be793632))
+
 ## [2.1.0](https://github.com/bosens-China/skillink/compare/v2.0.1...v2.1.0) (2026-04-08)
 
 
