@@ -73,10 +73,43 @@ links: [
 
 ```sh
 skillink [root]          # Sync files via symlinks
+skillink lock [files...] # Encrypt files to .lock files
+skillink unlock [files...] # Decrypt .lock files back to originals
 skillink --yes, -y       # Skip confirmation prompts
 skillink --version       # Show version
 skillink --help          # Show help
 ```
+
+### Encrypt / Decrypt
+
+Use `lock` and `unlock` to encrypt sensitive config files (e.g. `.mcp.json`, `.env`) so they can be committed to version control without exposing secrets.
+
+```bash
+# Encrypt files listed in config (default: .mcp.json)
+skillink lock
+
+# Encrypt specific files
+skillink lock .env .mcp.json
+
+# Decrypt files listed in config
+skillink unlock
+
+# Decrypt specific files
+skillink unlock .mcp.json
+```
+
+Configure which files to encrypt in `skillink.config.ts`:
+
+```typescript
+export default defineConfig({
+  // ...
+  encrypt: ['.mcp.json', '.env'],
+});
+```
+
+- `lock` reads each file, encrypts it with AES-256-CBC, and writes a `.lock` file alongside the original
+- `unlock` reads each `.lock` file, decrypts it, and restores the original (creates or replaces)
+- Original files and `.lock` files are both preserved — you control what goes into version control
 
 ## Programmatic Usage
 

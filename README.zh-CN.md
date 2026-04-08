@@ -72,11 +72,44 @@ links: [
 ## 命令行
 
 ```sh
-skillink [root]          # 通过符号链接同步文件
-skillink --yes, -y       # 跳过所有交互确认
-skillink --version       # 显示版本
-skillink --help          # 显示帮助
+skillink [root]            # 通过符号链接同步文件
+skillink lock [files...]   # 加密文件为 .lock 文件
+skillink unlock [files...] # 还原 .lock 文件
+skillink --yes, -y         # 跳过所有交互确认
+skillink --version         # 显示版本
+skillink --help            # 显示帮助
 ```
+
+### 加密 / 还原
+
+使用 `lock` 和 `unlock` 命令加密敏感配置文件（如 `.mcp.json`、`.env`），使其可以安全提交到版本控制。
+
+```bash
+# 加密配置中的文件（默认: .mcp.json）
+skillink lock
+
+# 加密指定文件
+skillink lock .env .mcp.json
+
+# 还原配置中的文件
+skillink unlock
+
+# 还原指定文件
+skillink unlock .mcp.json
+```
+
+在 `skillink.config.ts` 中配置需要加密的文件列表：
+
+```typescript
+export default defineConfig({
+  // ...
+  encrypt: ['.mcp.json', '.env'],
+});
+```
+
+- `lock` 读取文件内容，使用 AES-256-CBC 加密后写入 `.lock` 文件，原始文件保留
+- `unlock` 读取 `.lock` 文件解密还原，存在则替换、不存在则创建，`.lock` 文件保留
+- 原始文件和 `.lock` 文件均保留，由你决定哪些提交到版本控制
 
 ## 编程接口
 

@@ -17,6 +17,7 @@ const DEFAULT_CONFIG: SkillinkConfig = {
     { from: 'AGENTS.md', to: 'CLAUDE.md' },
     { from: '.agents', to: '.claude' },
   ],
+  encrypt: ['.mcp.json'],
 };
 
 /**

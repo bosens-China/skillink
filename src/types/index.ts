@@ -12,4 +12,6 @@ export interface SkillinkConfig {
   locale?: Locale;
   /** 符号链接映射列表 */
   links: LinkMapping[];
+  /** 需要加密的文件列表，默认 ['.mcp.json'] */
+  encrypt?: string[];
 }
