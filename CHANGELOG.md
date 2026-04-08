@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/bosens-China/skillink/compare/v2.1.1...v2.1.2) (2026-04-08)
+
+
+### Bug Fixes
+
+* enhance sync behavior and error handling, add gitignore normalization ([172072f](https://github.com/bosens-China/skillink/commit/172072ff1a41b78389a52b3a2ce7d65a50a47a40))
+
 ## [2.1.1](https://github.com/bosens-China/skillink/compare/v2.1.0...v2.1.1) (2026-04-08)
 
 
