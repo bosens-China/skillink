@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/bosens-China/skillink/compare/v2.0.1...v2.1.0) (2026-04-08)
+
+
+### Features
+
+* add lock/unlock commands for file encryption ([5604c5c](https://github.com/bosens-China/skillink/commit/5604c5c06a45fdf4d85fbf0eb90dd7a3bd300784))
+
 ## [2.0.1](https://github.com/bosens-China/skillink/compare/v2.0.0...v2.0.1) (2026-04-08)
 
 
