@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/bosens-China/skillink/compare/v1.1.0...v2.0.0) (2026-04-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* 重构为 AI 工具配置符号链接管理器
+
+### Features
+
+* 重构为 AI 工具配置符号链接管理器 ([13242b0](https://github.com/bosens-China/skillink/commit/13242b00b6fdbf261a18c8bb263ea81ac57deb27))
+
 ## [1.1.0](https://github.com/bosens-China/skillink/compare/v1.0.5...v1.1.0) (2026-02-10)
 
 
