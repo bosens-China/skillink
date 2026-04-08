@@ -1,138 +1,111 @@
-import chokidar from 'chokidar';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { loadConfig } from '@/core/config.js';
-import { Linker } from '@/core/linker.js';
+import { confirm } from '@inquirer/prompts';
 import pc from 'picocolors';
-import { isChineseLocale, resolveLocale } from '@/utils/locale.js';
+import { loadConfig, hasConfigFile, createDefaultConfig } from '@/core/config.js';
+import { Linker } from '@/core/linker.js';
+import { resolveLocale, isChineseLocale, t } from '@/utils/locale.js';
+import { addToGitignore } from '@/utils/gitignore.js';
+import type { Locale } from '@/types/index.js';
 
 /**
- * 同步命令
- * @param options.watch 是否启用监视模式
- * @param options.cwd 当前工作目录
+ * 主命令：init + sync 一体化流程
  */
-export async function syncCommand(options: { watch?: boolean; cwd?: string }) {
+export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
   const cwd = options.cwd || process.cwd();
-  const fallbackLocale = resolveLocale();
-  const fallbackChinese = isChineseLocale(fallbackLocale);
+  const autoConfirm = options.yes || false;
 
-  // 1. 加载配置
-  const config = await loadConfig(cwd);
-  if (!config) {
-    console.error(
-      pc.red(
-        fallbackChinese
-          ? '❌ 未找到配置。请先运行 "skillink init"。'
-          : '❌ Configuration not found. Run "skillink init" first.',
+  // 1. 检查/创建配置文件
+  if (!hasConfigFile(cwd)) {
+    const configPath = await createDefaultConfig(cwd);
+    console.log(
+      pc.green(
+        `+ ${path.relative(cwd, configPath)}`,
       ),
     );
-    process.exit(1);
   }
+
+  // 2. 加载配置
+  const config = await loadConfig(cwd);
   const locale = resolveLocale(config.locale);
   const isChinese = isChineseLocale(locale);
 
-  const linker = new Linker(cwd, config);
+  // 3. 检查源文件，收集有效的映射和缺失的映射
+  const validMappings: typeof config.links = [];
+  const gitignoreEntries: string[] = [];
 
-  // 2. 初始同步
-  console.log(
-    pc.cyan(isChinese ? '🔄 正在同步技能...' : '🔄 Syncing skills...'),
-  );
-  const results = await linker.sync();
-
-  // 打印结果
-  let changes = 0;
-  results.forEach((r) => {
-    if (r.status === 'linked' || r.status === 'cleaned') {
-      console.log(
-        `${pc.green(r.status === 'linked' ? '+' : '-')} ${r.skill} -> ${r.target}`,
-      );
-      changes++;
-    } else if (r.status === 'failed') {
-      console.error(
-        pc.red(
-          isChinese
-            ? `❌ ${r.skill} -> ${r.target}: ${r.message}`
-            : `❌ ${r.skill} -> ${r.target}: ${r.message}`,
+  for (const link of config.links) {
+    const fromPath = path.resolve(cwd, link.from);
+    if (!existsSync(fromPath)) {
+      console.warn(
+        pc.yellow(
+          t('警告：源路径不存在，跳过', 'Warning: source path not found, skipping', locale, config.locale) +
+            `: ${link.from}`,
         ),
       );
+      continue;
     }
-  });
+    validMappings.push(link);
 
-  if (changes === 0) {
-    console.log(
-      pc.gray(
-        isChinese
-          ? '无需更改。所有技能已同步。'
-          : 'No changes needed. All skills are already synced.',
-      ),
-    );
-  } else {
-    console.log(
-      pc.green(
-        isChinese
-          ? `✅ 已同步 ${changes} 处变更。`
-          : `✅ Synced ${changes} change(s).`,
-      ),
-    );
+    // 收集目标路径用于 .gitignore
+    gitignoreEntries.push(link.to);
   }
 
-  // 3. 监视模式
-  if (options.watch) {
+  if (validMappings.length === 0) {
     console.log(
-      pc.cyan(
-        isChinese
-          ? '\n👀 正在监视变更... 按 Ctrl+C 停止。'
-          : '\n👀 Watching for changes... Press Ctrl+C to stop.',
+      pc.yellow(
+        t('没有可同步的映射', 'No mappings to sync', locale, config.locale),
       ),
     );
+    return;
+  }
 
-    const sourceDir = path.resolve(cwd, config.source || '.agents/skills');
-
-    // 只监视源目录的一级子目录（技能目录）的增加和删除
-    const watcher = chokidar.watch(sourceDir, {
-      ignoreInitial: true,
-      depth: 1,
-      awaitWriteFinish: {
-        stabilityThreshold: 100,
-        pollInterval: 100,
-      },
-    });
-
-    watcher.on('all', async (event, filePath) => {
-      // 仅处理源目录下“一级子目录”的增删事件
-      if (path.dirname(filePath) !== sourceDir) return;
-
-      const fileName = path.basename(filePath);
-      if (!fileName || fileName.startsWith('.')) return;
-
-      try {
-        if (event === 'addDir') {
-          console.log(
-            pc.green(
-              isChinese
-                ? `+ 检测到新技能: ${fileName}`
-                : `+ New skill detected: ${fileName}`,
-            ),
-          );
-          await linker.syncSkillToAll(fileName);
-        } else if (event === 'unlinkDir') {
-          console.log(
-            pc.red(
-              isChinese
-                ? `- 技能已移除: ${fileName}`
-                : `- Skill removed: ${fileName}`,
-            ),
-          );
-          await linker.removeSkillFromAll(fileName);
-        }
-      } catch (error: unknown) {
-        console.error(
-          pc.red(
-            isChinese
-              ? `❌ 处理监视事件失败: ${error instanceof Error ? error.message : String(error)}`
-              : `❌ Failed to process watch event: ${error instanceof Error ? error.message : String(error)}`,
+  // 4. .gitignore 处理
+  if (gitignoreEntries.length > 0) {
+    if (autoConfirm) {
+      const { added, skipped } = await addToGitignore(cwd, gitignoreEntries);
+      if (added.length > 0) {
+        console.log(
+          pc.green(
+            t('已添加到 .gitignore', 'Added to .gitignore', locale, config.locale) +
+              `: ${added.join(', ')}`,
           ),
         );
       }
-    });
+      if (skipped.length > 0) {
+        console.log(
+          pc.gray(
+            t('.gitignore 中已存在', 'Already in .gitignore', locale, config.locale) +
+              `: ${skipped.join(', ')}`,
+          ),
+        );
+      }
+    } else {
+      const answer = await confirm({
+        message: t(
+          `是否将 ${gitignoreEntries.join(', ')} 添加到 .gitignore？`,
+          `Add ${gitignoreEntries.join(', ')} to .gitignore?`,
+          locale,
+          config.locale,
+        ),
+        default: true,
+      });
+
+      if (answer) {
+        const { added } = await addToGitignore(cwd, gitignoreEntries);
+        if (added.length > 0) {
+          console.log(
+            pc.green(
+              t('已添加到 .gitignore', 'Added to .gitignore', locale, config.locale) +
+                `: ${added.join(', ')}`,
+            ),
+          );
+        }
+      }
+    }
   }
+
+  // 5. 执行符号链接同步
+  const linker = new Linker(cwd, { links: validMappings });
+  await linker.sync();
 }

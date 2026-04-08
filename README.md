@@ -1,110 +1,94 @@
-# Skillink 🚀
+# Skillink
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-**Skillink** is a skill linker for AI tools.  
-Write skills in one place (`.agents/skills`) and sync to multiple tool directories with symlinks/junctions.
+**Skillink** is a symlink manager for AI tool configs.
+As AI tools gradually unify on `AGENTS.md` and `.agents/`, some (like Claude Code) still maintain their own ecosystem — causing fragmentation when switching tools. Skillink bridges this gap by syncing your configs everywhere with symlinks.
 
 > Core idea: **Write once, use everywhere.**
 
-## Features
-
-- Minimal architecture with Node.js 20+ and TypeScript
-- Symlink-based sync (no copy, instant effect)
-- Interactive `init` flow
-- `sync --watch` for real-time skill folder changes
-- Safe clean behavior (only removes links under source boundary)
-- CLI localization via config (`en` / `zh-CN`)
-
-## Install
-
-Install as a dev dependency:
-
-```bash
-# pnpm
-pnpm add -D @boses/skillink
-
-# npm
-npm install -D @boses/skillink
-
-# yarn
-yarn add -D @boses/skillink
-```
-
 ## Quick Start
 
-### 1) Initialize
+```bash
+npx skillink
+```
+
+That's it. The tool will:
+
+1. Create `skillink.config.ts` if it doesn't exist
+2. Symlink `AGENTS.md` → `CLAUDE.md`
+3. Symlink `.agents/` → `.claude/`
+4. Prompt to add linked paths to `.gitignore`
+
+### Skip Prompts
 
 ```bash
-npx skillink init
+npx skillink --yes
 ```
 
-The first step in `init` asks language (`English / 简体中文`), then it creates:
+## Configuration
 
-- `.agents/skills` (with an example skill)
-- `skillink.config.ts`
-
-### 2) Write skills
-
-```text
-.agents/skills/
-└── react-expert/
-    └── SKILL.md
-```
-
-### 3) Sync
-
-```bash
-npx skillink sync
-```
-
-Watch mode:
-
-```bash
-npx skillink sync --watch
-```
-
-## Commands
-
-| Command  | Description                                                                          |
-| :------- | :----------------------------------------------------------------------------------- |
-| `init`   | Initialize project and create config.                                                |
-| `sync`   | Sync skills to all enabled targets (`--watch` supported).                            |
-| `status` | Show detailed sync status.                                                           |
-| `clean`  | Remove generated symlinks from configured targets.                                   |
-| `check`  | Check updates by semantic versions from npm `versions` (no `latest` tag dependency). |
-
-## Configuration (`skillink.config.ts`)
+After first run, edit `skillink.config.ts`:
 
 ```typescript
-import { defineConfig } from '@boses/skillink';
+import { defineConfig } from 'skillink';
 
 export default defineConfig({
-  // CLI locale: 'en' | 'zh-CN' (default: 'en')
-  locale: 'en',
-  // Skills source directory
-  source: '.agents/skills',
-  // Sync targets
-  targets: [
-    {
-      name: 'cursor',
-      path: '.cursor/rules',
-      enabled: true,
-    },
-    {
-      name: 'gemini',
-      path: '.gemini/skills',
-      enabled: true,
-    },
+  locale: 'auto', // 'auto' | 'en' | 'zh-CN'
+  links: [
+    { from: 'AGENTS.md', to: 'CLAUDE.md' },
+    { from: '.agents', to: '.claude' },
   ],
 });
 ```
 
+The `links` array maps source files/directories to targets. One source can map to multiple destinations:
+
+```typescript
+links: [
+  { from: 'AGENTS.md', to: 'CLAUDE.md' },
+  { from: 'AGENTS.md', to: '.cursor/rules/AGENTS.md' },
+  { from: '.agents', to: '.claude' },
+  { from: '.agents', to: '.cursor/rules' },
+]
+```
+
+### Locale
+
+| Value    | Behavior                              |
+| :------- | :------------------------------------ |
+| `auto`   | Detect system language, bilingual output |
+| `en`     | English only                          |
+| `zh-CN`  | Chinese only                          |
+
+## How It Works
+
+- **File mapping**: `AGENTS.md` → `CLAUDE.md` creates a single symlink
+- **Directory mapping**: `.agents` → `.claude` symlinks each file inside the source directory individually
+- **One-to-many**: A single source can be linked to multiple targets
+- **Idempotent**: Safe to run multiple times, skips already-correct links
+- **Stale cleanup**: Removes symlinks in target that no longer exist in source
+
+## CLI
+
+```sh
+skillink [root]          # Sync files via symlinks
+skillink --yes, -y       # Skip confirmation prompts
+skillink --version       # Show version
+skillink --help          # Show help
+```
+
+## Programmatic Usage
+
+```typescript
+import { defineConfig, loadConfig } from 'skillink';
+```
+
 ## Git Recommendation
 
-- Commit: `skillink.config.ts`, `.agents/skills/**`
-- Avoid committing generated link targets (for example: `.cursor/rules`, `.gemini/skills`)
-- `init` will remind you to add target directories to `.gitignore`
+- Commit: `skillink.config.ts`, `AGENTS.md`, `.agents/**`
+- Ignore: linked targets (e.g. `CLAUDE.md`, `.claude/`)
+- `npx skillink` will prompt to add these to `.gitignore`
 
 ## License
 

@@ -30,59 +30,96 @@ afterEach(async () => {
   );
 });
 
-describe('Linker.cleanAll', () => {
-  it('会清理所有配置目标（包括 disabled 目标）', async () => {
+describe('Linker.sync', () => {
+  it('文件映射：创建符号链接', async () => {
     const root = await createTempDir();
-    const sourceDir = path.join(root, '.agents', 'skills');
-    const skillDir = path.join(sourceDir, 'demo-skill');
-    const enabledTargetDir = path.join(root, '.cursor', 'rules');
-    const disabledTargetDir = path.join(root, '.gemini', 'skills');
-
-    await fs.mkdir(skillDir, { recursive: true });
-    await fs.mkdir(enabledTargetDir, { recursive: true });
-    await fs.mkdir(disabledTargetDir, { recursive: true });
-
-    const enabledLink = path.join(enabledTargetDir, 'demo-skill');
-    const disabledLink = path.join(disabledTargetDir, 'demo-skill');
-    await fs.symlink(skillDir, enabledLink, 'dir');
-    await fs.symlink(skillDir, disabledLink, 'dir');
+    const agentsMd = path.join(root, 'AGENTS.md');
+    await fs.writeFile(agentsMd, '# Agents');
 
     const config: SkillinkConfig = {
-      source: '.agents/skills',
-      targets: [
-        { name: 'cursor', path: '.cursor/rules', enabled: true },
-        { name: 'gemini', path: '.gemini/skills', enabled: false },
+      links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
+    };
+
+    const linker = new Linker(root, config);
+    await linker.sync();
+
+    const claudeMd = path.join(root, 'CLAUDE.md');
+    expect(await exists(claudeMd)).toBe(true);
+    const linkTarget = await fs.readlink(claudeMd);
+    const absTarget = path.resolve(path.dirname(claudeMd), linkTarget);
+    expect(absTarget).toBe(path.resolve(agentsMd));
+  });
+
+  it('目录映射：整个目录符号链接到目标', async () => {
+    const root = await createTempDir();
+    const agentsDir = path.join(root, '.agents');
+    await fs.mkdir(agentsDir, { recursive: true });
+    await fs.writeFile(path.join(agentsDir, 'file1.md'), '# File 1');
+    await fs.writeFile(path.join(agentsDir, 'file2.md'), '# File 2');
+
+    const config: SkillinkConfig = {
+      links: [{ from: '.agents', to: '.claude' }],
+    };
+
+    const linker = new Linker(root, config);
+    await linker.sync();
+
+    const claudeLink = path.join(root, '.claude');
+    expect(await exists(claudeLink)).toBe(true);
+
+    // 验证 .claude 是一个符号链接，指向 .agents
+    const linkTarget = await fs.readlink(claudeLink);
+    const absTarget = path.resolve(path.dirname(claudeLink), linkTarget);
+    expect(absTarget).toBe(path.resolve(agentsDir));
+
+    // 通过符号链接可以访问源目录内的文件
+    const content = await fs.readFile(path.join(claudeLink, 'file1.md'), 'utf-8');
+    expect(content).toBe('# File 1');
+  });
+
+  it('幂等性：重复执行不报错', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
+
+    const config: SkillinkConfig = {
+      links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
+    };
+
+    const linker = new Linker(root, config);
+    await linker.sync();
+    await linker.sync(); // 第二次执行不应报错
+
+    expect(await exists(path.join(root, 'CLAUDE.md'))).toBe(true);
+  });
+
+  it('跳过不存在的源路径', async () => {
+    const root = await createTempDir();
+
+    const config: SkillinkConfig = {
+      links: [{ from: 'nonexistent.txt', to: 'output.txt' }],
+    };
+
+    const linker = new Linker(root, config);
+    await linker.sync(); // 不应抛出错误
+
+    expect(await exists(path.join(root, 'output.txt'))).toBe(false);
+  });
+
+  it('一对多映射：一个源链接到多个目标', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
+
+    const config: SkillinkConfig = {
+      links: [
+        { from: 'AGENTS.md', to: 'CLAUDE.md' },
+        { from: 'AGENTS.md', to: '.cursor/rules/AGENTS.md' },
       ],
     };
 
     const linker = new Linker(root, config);
-    await linker.cleanAll();
+    await linker.sync();
 
-    expect(await exists(enabledLink)).toBe(false);
-    expect(await exists(disabledLink)).toBe(false);
-  });
-
-  it('不会误删 source 同前缀目录的链接', async () => {
-    const root = await createTempDir();
-    const sourceDir = path.join(root, '.agents', 'skills');
-    const backupDir = path.join(root, '.agents', 'skills-backup');
-    const targetDir = path.join(root, '.cursor', 'rules');
-
-    await fs.mkdir(path.join(sourceDir, 'demo-skill'), { recursive: true });
-    await fs.mkdir(path.join(backupDir, 'backup-skill'), { recursive: true });
-    await fs.mkdir(targetDir, { recursive: true });
-
-    const backupLink = path.join(targetDir, 'backup-skill');
-    await fs.symlink(path.join(backupDir, 'backup-skill'), backupLink, 'dir');
-
-    const config: SkillinkConfig = {
-      source: '.agents/skills',
-      targets: [{ name: 'cursor', path: '.cursor/rules', enabled: true }],
-    };
-
-    const linker = new Linker(root, config);
-    await linker.cleanAll();
-
-    expect(await exists(backupLink)).toBe(true);
+    expect(await exists(path.join(root, 'CLAUDE.md'))).toBe(true);
+    expect(await exists(path.join(root, '.cursor', 'rules', 'AGENTS.md'))).toBe(true);
   });
 });

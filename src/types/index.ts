@@ -1,39 +1,15 @@
-export type Locale = 'en' | 'zh-CN';
+export type Locale = 'auto' | 'en' | 'zh-CN';
 
-export interface SyncTarget {
-  /** 目标名称（如 'Cursor', 'VSCode'） */
-  name: string;
+export interface LinkMapping {
+  /** 源路径（相对于项目根目录） */
+  from: string;
   /** 目标路径（相对于项目根目录） */
-  path: string;
-  /** 是否启用同步 */
-  enabled?: boolean;
+  to: string;
 }
 
 export interface SkillinkConfig {
-  /** 技能源目录（默认为 .agents/skills） */
-  source?: string;
-  /** CLI 输出语言（默认 en） */
+  /** 语言设置：auto 自动检测，en 英文，zh-CN 中文 */
   locale?: Locale;
-  /** 同步目标列表 */
-  targets: SyncTarget[];
-}
-
-export interface Skill {
-  /** 技能名称（文件夹名） */
-  name: string;
-  /** 技能完整路径 */
-  path: string;
-  /** 是否有效（包含 SKILL.md） */
-  isValid: boolean;
-}
-
-export interface SyncResult {
-  /** 技能名称 */
-  skill: string;
-  /** 目标名称 */
-  target: string;
-  /** 同步状态 */
-  status: 'linked' | 'failed' | 'skipped' | 'cleaned';
-  /** 详细信息 */
-  message?: string;
+  /** 符号链接映射列表 */
+  links: LinkMapping[];
 }

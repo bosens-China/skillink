@@ -11,9 +11,9 @@
     "verbatimModuleSyntax": true,
     "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": ".",
+    // "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "skillink.config.ts"],

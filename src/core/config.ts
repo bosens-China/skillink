@@ -1,9 +1,9 @@
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { createJiti } from 'jiti';
 import type { SkillinkConfig } from '@/types/index.js';
 
-// 支持的配置文件名
 const CONFIG_FILES = [
   'skillink.config.ts',
   'skillink.config.js',
@@ -11,33 +11,60 @@ const CONFIG_FILES = [
   'skillink.config.cjs',
 ];
 
+const DEFAULT_CONFIG: SkillinkConfig = {
+  locale: 'auto',
+  links: [
+    { from: 'AGENTS.md', to: 'CLAUDE.md' },
+    { from: '.agents', to: '.claude' },
+  ],
+};
+
 /**
- * 加载配置文件
- * @param cwd 当前工作目录
+ * 加载配置文件，无配置文件时返回默认配置
  */
 export async function loadConfig(
   cwd: string = process.cwd(),
-): Promise<SkillinkConfig | null> {
+): Promise<SkillinkConfig> {
   const jiti = createJiti(cwd);
 
   for (const file of CONFIG_FILES) {
     const configPath = path.join(cwd, file);
     if (existsSync(configPath)) {
-      try {
-        const mod = await jiti.import(configPath);
-        // 处理默认导出
-        return (
-          (mod as { default?: SkillinkConfig }).default ||
-          (mod as SkillinkConfig)
-        );
-      } catch (error) {
-        console.error(`无法从 ${file} 加载配置:`, error);
-        return null;
-      }
+      const mod = await jiti.import(configPath);
+      return (
+        (mod as { default?: SkillinkConfig }).default ||
+        (mod as SkillinkConfig)
+      );
     }
   }
 
-  return null;
+  return DEFAULT_CONFIG;
+}
+
+/**
+ * 检查是否存在配置文件
+ */
+export function hasConfigFile(cwd: string = process.cwd()): boolean {
+  return CONFIG_FILES.some((file) => existsSync(path.join(cwd, file)));
+}
+
+/**
+ * 创建默认配置文件
+ */
+export async function createDefaultConfig(cwd: string = process.cwd()): Promise<string> {
+  const configPath = path.join(cwd, 'skillink.config.ts');
+  const content = `import { defineConfig } from 'skillink';
+
+export default defineConfig({
+  locale: 'auto',
+  links: [
+    { from: 'AGENTS.md', to: 'CLAUDE.md' },
+    { from: '.agents', to: '.claude' },
+  ],
+});
+`;
+  await fs.writeFile(configPath, content, 'utf-8');
+  return configPath;
 }
 
 /**
