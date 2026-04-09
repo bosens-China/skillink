@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/bosens-China/skillink/compare/v2.1.3...v3.0.0) (2026-04-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* v3 配置拆分、glob 同步与加密清单
+
+### Features
+
+* v3 配置拆分、glob 同步与加密清单 ([75588fa](https://github.com/bosens-China/skillink/commit/75588fa48ca3726cc5ee00ecdf04f43d977787e9))
+
 ## [2.1.3](https://github.com/bosens-China/skillink/compare/v2.1.2...v2.1.3) (2026-04-08)
 
 
