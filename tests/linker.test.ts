@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Linker } from '../src/core/linker.js';
-import type { SkillinkConfig } from '../src/types/index.js';
+import type { LinkerConfig } from '../src/types/index.js';
 
 const tempDirs: string[] = [];
 const canRunFileSymlinkCases = process.platform !== 'win32';
@@ -37,7 +37,7 @@ describe('Linker.sync', () => {
     const agentsMd = path.join(root, 'AGENTS.md');
     await fs.writeFile(agentsMd, '# Agents');
 
-    const config: SkillinkConfig = {
+    const config: LinkerConfig = {
       links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
     };
 
@@ -58,7 +58,7 @@ describe('Linker.sync', () => {
     await fs.writeFile(path.join(agentsDir, 'file1.md'), '# File 1');
     await fs.writeFile(path.join(agentsDir, 'file2.md'), '# File 2');
 
-    const config: SkillinkConfig = {
+    const config: LinkerConfig = {
       links: [{ from: '.agents', to: '.claude' }],
     };
 
@@ -74,7 +74,10 @@ describe('Linker.sync', () => {
     expect(absTarget).toBe(path.resolve(agentsDir));
 
     // 通过符号链接可以访问源目录内的文件
-    const content = await fs.readFile(path.join(claudeLink, 'file1.md'), 'utf-8');
+    const content = await fs.readFile(
+      path.join(claudeLink, 'file1.md'),
+      'utf-8',
+    );
     expect(content).toBe('# File 1');
   });
 
@@ -82,7 +85,7 @@ describe('Linker.sync', () => {
     const root = await createTempDir();
     await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
 
-    const config: SkillinkConfig = {
+    const config: LinkerConfig = {
       links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
     };
 
@@ -96,7 +99,7 @@ describe('Linker.sync', () => {
   it('跳过不存在的源路径', async () => {
     const root = await createTempDir();
 
-    const config: SkillinkConfig = {
+    const config: LinkerConfig = {
       links: [{ from: 'nonexistent.txt', to: 'output.txt' }],
     };
 
@@ -106,39 +109,44 @@ describe('Linker.sync', () => {
     expect(await exists(path.join(root, 'output.txt'))).toBe(false);
   });
 
-  it.skipIf(!canRunFileSymlinkCases)('一对多映射：一个源链接到多个目标', async () => {
-    const root = await createTempDir();
-    await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
+  it.skipIf(!canRunFileSymlinkCases)(
+    '一对多映射：一个源链接到多个目标',
+    async () => {
+      const root = await createTempDir();
+      await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
 
-    const config: SkillinkConfig = {
-      links: [
-        { from: 'AGENTS.md', to: 'CLAUDE.md' },
-        { from: 'AGENTS.md', to: '.cursor/rules/AGENTS.md' },
-      ],
-    };
+      const config: LinkerConfig = {
+        links: [
+          { from: 'AGENTS.md', to: 'CLAUDE.md' },
+          { from: 'AGENTS.md', to: 'nested/rules/AGENTS.md' },
+        ],
+      };
 
-    const linker = new Linker(root, config);
-    await linker.sync();
+      const linker = new Linker(root, config);
+      await linker.sync();
 
-    expect(await exists(path.join(root, 'CLAUDE.md'))).toBe(true);
-    expect(await exists(path.join(root, '.cursor', 'rules', 'AGENTS.md'))).toBe(true);
-  });
+      expect(await exists(path.join(root, 'CLAUDE.md'))).toBe(true);
+      expect(
+        await exists(path.join(root, 'nested', 'rules', 'AGENTS.md')),
+      ).toBe(true);
+    },
+  );
 
   it('--yes 模式下目标目录已存在且非链接时抛错', async () => {
     const root = await createTempDir();
     await fs.mkdir(path.join(root, '.agents'), { recursive: true });
     await fs.mkdir(path.join(root, '.claude'), { recursive: true });
 
-    const config: SkillinkConfig = {
+    const config: LinkerConfig = {
       links: [{ from: '.agents', to: '.claude' }],
       locale: 'en',
     };
 
-    const linker = new Linker(
-      root,
-      config,
-      { autoConfirm: true, locale: 'en', configLocale: 'en' },
-    );
+    const linker = new Linker(root, config, {
+      autoConfirm: true,
+      locale: 'en',
+      configLocale: 'en',
+    });
 
     await expect(linker.sync()).rejects.toThrow(
       'Target directory exists and is not a symlink; in --yes mode it will not be deleted automatically',
@@ -150,16 +158,15 @@ describe('Linker.sync', () => {
     await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
     await fs.mkdir(path.join(root, 'CLAUDE.md'), { recursive: true });
 
-    const config: SkillinkConfig = {
+    const config: LinkerConfig = {
       links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
       locale: 'auto',
     };
 
-    const linker = new Linker(
-      root,
-      config,
-      { locale: 'zh-CN', configLocale: 'auto' },
-    );
+    const linker = new Linker(root, config, {
+      locale: 'zh-CN',
+      configLocale: 'auto',
+    });
 
     await expect(linker.sync()).rejects.toThrow(
       '目标路径已存在且类型不匹配：源是文件，目标是目录',
@@ -175,12 +182,15 @@ describe('Linker.sync', () => {
     const toPath = path.join(root, 'CLAUDE.md');
     await fs.writeFile(fromPath, 'v1');
 
-    const config: SkillinkConfig = {
+    const config: LinkerConfig = {
       links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
       locale: 'en',
     };
 
-    const linker = new Linker(root, config, { locale: 'en', configLocale: 'en' });
+    const linker = new Linker(root, config, {
+      locale: 'en',
+      configLocale: 'en',
+    });
     await linker.sync();
 
     const tmpPath = path.join(root, 'AGENTS.tmp.md');

@@ -7,7 +7,9 @@ import { addToGitignore } from '../src/utils/gitignore.js';
 const tempDirs: string[] = [];
 
 async function createTempDir() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'skillink-gitignore-test-'));
+  const dir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'skillink-gitignore-test-'),
+  );
   tempDirs.push(dir);
   return dir;
 }
@@ -23,7 +25,11 @@ afterEach(async () => {
 describe('addToGitignore', () => {
   it('同一轮传入重复条目时只追加一次', async () => {
     const root = await createTempDir();
-    const result = await addToGitignore(root, ['.claude', '.claude', 'CLAUDE.md']);
+    const result = await addToGitignore(root, [
+      '.claude',
+      '.claude',
+      'CLAUDE.md',
+    ]);
     const content = await fs.readFile(path.join(root, '.gitignore'), 'utf-8');
 
     expect(result.added).toEqual(['.claude', 'CLAUDE.md']);
@@ -47,7 +53,10 @@ describe('addToGitignore', () => {
     const root = await createTempDir();
     await fs.writeFile(path.join(root, '.gitignore'), '.cursor/rules\n');
 
-    const result = await addToGitignore(root, ['.cursor\\rules\\', '.cursor/rules/']);
+    const result = await addToGitignore(root, [
+      '.cursor\\rules\\',
+      '.cursor/rules/',
+    ]);
     const content = await fs.readFile(path.join(root, '.gitignore'), 'utf-8');
 
     expect(result.added).toEqual([]);

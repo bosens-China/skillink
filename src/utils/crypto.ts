@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  scryptSync,
+} from 'node:crypto';
 
 const ALGORITHM = 'aes-256-cbc' as const;
 const KEY_LENGTH = 32;
@@ -14,7 +19,10 @@ export function encrypt(content: string, password: string): string {
   const key = scryptSync(password, salt, KEY_LENGTH);
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv);
-  const encrypted = Buffer.concat([cipher.update(content, 'utf8'), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(content, 'utf8'),
+    cipher.final(),
+  ]);
   return `${salt.toString('hex')}:${iv.toString('hex')}:${encrypted.toString('hex')}`;
 }
 
@@ -33,6 +41,9 @@ export function decrypt(encryptedText: string, password: string): string {
   const encrypted = Buffer.from(dataHex, 'hex');
   const key = scryptSync(password, salt, KEY_LENGTH);
   const decipher = createDecipheriv(ALGORITHM, key, iv);
-  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  const decrypted = Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final(),
+  ]);
   return decrypted.toString('utf8');
 }

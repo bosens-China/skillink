@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { select } from '@inquirer/prompts';
-import type { SkillinkConfig, LinkMapping } from '../types/index.js';
+import type { LinkerConfig, LinkMapping } from '../types/index.js';
 import { ensureDir, isSymlink, createSymlink } from '../utils/fs.js';
 import type { Locale } from '../types/index.js';
 import { t } from '../utils/locale.js';
@@ -17,11 +17,11 @@ interface LinkerOptions {
  * 核心链接器类：负责同步逻辑
  */
 export class Linker {
-  private config: SkillinkConfig;
+  private config: LinkerConfig;
   private root: string;
   private options: LinkerOptions;
 
-  constructor(root: string, config: SkillinkConfig, options: LinkerOptions = {}) {
+  constructor(root: string, config: LinkerConfig, options: LinkerOptions = {}) {
     this.root = root;
     this.config = config;
     this.options = options;
@@ -121,11 +121,21 @@ export class Linker {
             ),
             choices: [
               {
-                name: t('删除并覆盖', 'Delete and overwrite', this.options.locale ?? 'en', this.options.configLocale),
+                name: t(
+                  '删除并覆盖',
+                  'Delete and overwrite',
+                  this.options.locale ?? 'en',
+                  this.options.configLocale,
+                ),
                 value: 'overwrite',
               },
               {
-                name: t('跳过该映射', 'Skip this mapping', this.options.locale ?? 'en', this.options.configLocale),
+                name: t(
+                  '跳过该映射',
+                  'Skip this mapping',
+                  this.options.locale ?? 'en',
+                  this.options.configLocale,
+                ),
                 value: 'skip',
               },
             ],
@@ -137,7 +147,8 @@ export class Linker {
 
           await fs.rm(toPath, { recursive: true, force: true });
         } else if (!fromStats.isDirectory() && !toStats.isDirectory()) {
-          const isSameFile = fromStats.dev === toStats.dev && fromStats.ino === toStats.ino;
+          const isSameFile =
+            fromStats.dev === toStats.dev && fromStats.ino === toStats.ino;
           // 文件映射：如果不是同一文件（例如源文件被替换后），自动重建链接以保持同步
           if (!isSameFile) {
             await fs.unlink(toPath);

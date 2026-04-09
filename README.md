@@ -16,8 +16,8 @@ npx @boses/skillink
 That's it. The tool will:
 
 1. Create `skillink.config.ts` if it doesn't exist
-2. Symlink `AGENTS.md` → `CLAUDE.md`
-3. Symlink `.agents/` → `.claude/`
+2. Symlink every `AGENTS.md` matched by glob (respecting `.gitignore`) → `CLAUDE.md` next to each file
+3. Symlink `.agents/` → `.claude/` beside the source directory
 4. Prompt to add linked paths to `.gitignore`
 
 ### Skip Prompts
@@ -33,39 +33,45 @@ After first run, edit `skillink.config.ts`:
 ```typescript
 export default {
   locale: 'auto', // 'auto' | 'en' | 'zh-CN'
-  links: [
-    { from: 'AGENTS.md', to: 'CLAUDE.md' },
-    { from: '.agents', to: '.claude' },
+  // Agent docs: glob (gitignore-aware); each `to` is relative to each matched file's directory
+  agentsMarkdown: [
+    {
+      from: '**/AGENTS.md',
+      to: ['CLAUDE.md'],
+    },
   ],
+  // Skills dirs: each `to` is beside the matched source dir (same parent as `.agents`)
+  agentsSkills: [
+    {
+      from: '.agents',
+      to: ['.claude'],
+    },
+  ],
+  // Optional extra symlinks (no glob)
+  // links: [{ from: 'extra.txt', to: 'extra.link.txt' }],
+  encrypt: ['.mcp.json'],
 };
 ```
 
-The `links` array maps source files/directories to targets. One source can map to multiple destinations:
+All top-level fields are optional. `export default {}` is valid: **sync** will resolve zero mappings and exit without error (aside from optional `.gitignore` prompts when there are no targets).
 
-```typescript
-links: [
-  { from: 'AGENTS.md', to: 'CLAUDE.md' },
-  { from: 'AGENTS.md', to: '.cursor/rules/AGENTS.md' },
-  { from: '.agents', to: '.claude' },
-  { from: '.agents', to: '.cursor/rules' },
-]
-```
+One logical source can still map to many targets by listing multiple entries in `to`, or by adding more rules under `agentsMarkdown` / `agentsSkills`.
 
 ### Locale
 
-| Value    | Behavior                              |
-| :------- | :------------------------------------ |
-| `auto`   | Detect system language, bilingual output |
-| `en`     | English only                          |
-| `zh-CN`  | Chinese only                          |
+| Value   | Behavior                                 |
+| :------ | :--------------------------------------- |
+| `auto`  | Detect system language, bilingual output |
+| `en`    | English only                             |
+| `zh-CN` | Chinese only                             |
 
 ## How It Works
 
-- **File mapping**: `AGENTS.md` → `CLAUDE.md` creates a single symlink
-- **Directory mapping**: `.agents` → `.claude` creates a single directory symlink
-- **One-to-many**: A single source can be linked to multiple targets
+- **File rules (`agentsMarkdown`)**: e.g. `**/AGENTS.md` with `to: ['CLAUDE.md']` creates `CLAUDE.md` next to each matched `AGENTS.md` (glob respects `.gitignore`, including nested ignore files when using the default matcher).
+- **Directory rules (`agentsSkills`)**: e.g. `.agents` → `.claude` means a directory symlink at `.claude` pointing to `.agents` (targets are siblings of the source directory).
+- **Optional `links`**: literal `from`/`to` pairs for anything else.
+- **One-to-many**: Multiple entries in `to`, or multiple rules.
 - **Idempotent**: Safe to run multiple times, skips already-correct links
-- **Stale cleanup**: Removes symlinks in target that no longer exist in source
 
 ## CLI
 
@@ -111,14 +117,14 @@ skillink lock
 # Encrypt specific files
 skillink lock .env .mcp.json
 
-# Decrypt files listed in config
+# Decrypt: with no args, uses paths listed in skillink.encrypt.json if present; otherwise falls back to `encrypt` in config
 skillink unlock
 
-# Decrypt specific files
+# Decrypt specific files only
 skillink unlock .mcp.json
 ```
 
-Configure which files to encrypt in `skillink.config.ts`:
+Configure default candidates for `lock` (and `unlock` fallback) in `skillink.config.ts`:
 
 ```typescript
 export default {
@@ -127,19 +133,19 @@ export default {
 };
 ```
 
-- `lock` reads each file, encrypts it with AES-256-CBC, and writes a `.lock` file alongside the original
-- `unlock` reads each `.lock` file, decrypts it, and restores the original (creates or replaces)
+- `lock` writes AES-256-CBC ciphertext next to each file as `*.lock`, keeps originals, and **merges relative paths into `skillink.encrypt.json`**
+- `unlock` restores plaintext from `*.lock`; with no file arguments it prefers the manifest list
 - Original files and `.lock` files are both preserved — you control what goes into version control
 
 ## Programmatic Usage
 
 ```typescript
-import { defineConfig, loadConfig } from '@boses/skillink';
+import { defineConfig, loadConfig, resolveLinkMappings } from '@boses/skillink';
 ```
 
 ## Git Recommendation
 
-- Commit: `skillink.config.ts`, `AGENTS.md`, `.agents/**`
+- Commit: `skillink.config.ts`, `skillink.encrypt.json` (optional), `AGENTS.md`, `.agents/**`
 - Ignore: linked targets (e.g. `CLAUDE.md`, `.claude/`)
 - `npx @boses/skillink` will prompt to add these to `.gitignore`
 

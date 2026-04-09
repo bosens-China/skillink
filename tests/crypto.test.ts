@@ -33,7 +33,9 @@ describe('crypto', () => {
   });
 
   it('should fail with invalid format', () => {
-    expect(() => decrypt('invalid-data', 'password')).toThrow('Invalid encrypted format');
+    expect(() => decrypt('invalid-data', 'password')).toThrow(
+      'Invalid encrypted format',
+    );
   });
 
   it('should handle empty string', () => {

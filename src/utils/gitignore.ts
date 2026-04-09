@@ -41,7 +41,9 @@ export async function addToGitignore(
 
   const linesToAdd: string[] = [];
   const normalizedEntries = Array.from(
-    new Set(entries.map((entry) => normalizeGitignoreEntry(entry)).filter(Boolean)),
+    new Set(
+      entries.map((entry) => normalizeGitignoreEntry(entry)).filter(Boolean),
+    ),
   );
   for (const entry of normalizedEntries) {
     if (existingNormalized.has(entry)) {
@@ -54,7 +56,8 @@ export async function addToGitignore(
   }
 
   if (linesToAdd.length > 0) {
-    const prefix = existingContent.endsWith('\n') || existingContent === '' ? '' : '\n';
+    const prefix =
+      existingContent.endsWith('\n') || existingContent === '' ? '' : '\n';
     const block = prefix + linesToAdd.join('\n') + '\n';
     await fs.appendFile(gitignorePath, block, 'utf-8');
   }

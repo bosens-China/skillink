@@ -1,9 +1,13 @@
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { select } from '@inquirer/prompts';
 import pc from 'picocolors';
-import { loadConfig, hasConfigFile, createDefaultConfig } from '@/core/config.js';
+import {
+  loadConfig,
+  hasConfigFile,
+  createDefaultConfig,
+} from '@/core/config.js';
 import { Linker } from '@/core/linker.js';
+import { resolveLinkMappings } from '@/core/resolve-mappings.js';
 import { resolveLocale, t } from '@/utils/locale.js';
 import { addToGitignore } from '@/utils/gitignore.js';
 
@@ -17,37 +21,33 @@ export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
   // 1. 检查/创建配置文件
   if (!hasConfigFile(cwd)) {
     const configPath = await createDefaultConfig(cwd);
-    console.log(
-      pc.green(
-        `+ ${path.relative(cwd, configPath)}`,
-      ),
-    );
+    console.log(pc.green(`+ ${path.relative(cwd, configPath)}`));
   }
 
   // 2. 加载配置
   const config = await loadConfig(cwd);
   const locale = resolveLocale(config.locale);
 
-  // 3. 检查源文件，收集有效的映射和缺失的映射
-  const validMappings: typeof config.links = [];
-  const gitignoreEntries: string[] = [];
+  // 3. 解析 glob + 字面量映射
+  const { mappings: validMappings, warnings } = await resolveLinkMappings(
+    cwd,
+    config,
+  );
 
-  for (const link of config.links) {
-    const fromPath = path.resolve(cwd, link.from);
-    if (!existsSync(fromPath)) {
-      console.warn(
-        pc.yellow(
-          t('警告：源路径不存在，跳过', 'Warning: source path not found, skipping', locale, config.locale) +
-            `: ${link.from}`,
+  for (const w of warnings) {
+    console.warn(
+      pc.yellow(
+        t(
+          `未匹配任何路径，跳过规则: ${w}`,
+          `No paths matched, skipping rule: ${w}`,
+          locale,
+          config.locale,
         ),
-      );
-      continue;
-    }
-    validMappings.push(link);
-
-    // 收集目标路径用于 .gitignore
-    gitignoreEntries.push(link.to);
+      ),
+    );
   }
+
+  const gitignoreEntries = [...new Set(validMappings.map((m) => m.to))];
 
   if (validMappings.length === 0) {
     console.log(
@@ -65,16 +65,24 @@ export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
       if (added.length > 0) {
         console.log(
           pc.green(
-            t('已添加到 .gitignore', 'Added to .gitignore', locale, config.locale) +
-              `: ${added.join(', ')}`,
+            t(
+              '已添加到 .gitignore',
+              'Added to .gitignore',
+              locale,
+              config.locale,
+            ) + `: ${added.join(', ')}`,
           ),
         );
       }
       if (skipped.length > 0) {
         console.log(
           pc.gray(
-            t('.gitignore 中已存在', 'Already in .gitignore', locale, config.locale) +
-              `: ${skipped.join(', ')}`,
+            t(
+              '.gitignore 中已存在',
+              'Already in .gitignore',
+              locale,
+              config.locale,
+            ) + `: ${skipped.join(', ')}`,
           ),
         );
       }
@@ -103,8 +111,12 @@ export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
         if (added.length > 0) {
           console.log(
             pc.green(
-              t('已添加到 .gitignore', 'Added to .gitignore', locale, config.locale) +
-                `: ${added.join(', ')}`,
+              t(
+                '已添加到 .gitignore',
+                'Added to .gitignore',
+                locale,
+                config.locale,
+              ) + `: ${added.join(', ')}`,
             ),
           );
         }

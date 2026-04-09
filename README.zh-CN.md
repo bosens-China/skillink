@@ -16,8 +16,8 @@ npx @boses/skillink
 就这么简单。工具会自动执行：
 
 1. 如果不存在 `skillink.config.ts`，自动创建
-2. 符号链接 `AGENTS.md` → `CLAUDE.md`
-3. 符号链接 `.agents/` → `.claude/`
+2. 按 glob 找到所有 `AGENTS.md`（遵守 `.gitignore`），在每个文件旁链接出 `CLAUDE.md`
+3. 将 `.agents` 链接为同级的 `.claude`（目录级符号链接）
 4. 询问是否将链接目标路径添加到 `.gitignore`
 
 ### 跳过确认
@@ -33,39 +33,45 @@ npx @boses/skillink --yes
 ```typescript
 export default {
   locale: 'auto', // 'auto' | 'en' | 'zh-CN'
-  links: [
-    { from: 'AGENTS.md', to: 'CLAUDE.md' },
-    { from: '.agents', to: '.claude' },
+  // Agent 文档：glob（遵守 gitignore）；to 相对于每个命中文件所在目录
+  agentsMarkdown: [
+    {
+      from: '**/AGENTS.md',
+      to: ['CLAUDE.md'],
+    },
   ],
+  // Skills 目录：to 与命中的源目录「同级」（在源目录的父目录下，如 .agents 旁生成 .claude）
+  agentsSkills: [
+    {
+      from: '.agents',
+      to: ['.claude'],
+    },
+  ],
+  // 可选：其它字面量映射（不支持 glob）
+  // links: [{ from: 'extra.txt', to: 'extra.link.txt' }],
+  encrypt: ['.mcp.json'],
 };
 ```
 
-`links` 数组定义源文件/目录到目标的映射。一个源可以映射到多个目标：
+顶层字段均可选。`export default {}` 合法：**sync** 不会建立任何链接并正常结束（无映射目标时也不会往 `.gitignore` 写路径）。
 
-```typescript
-links: [
-  { from: 'AGENTS.md', to: 'CLAUDE.md' },
-  { from: 'AGENTS.md', to: '.cursor/rules/AGENTS.md' },
-  { from: '.agents', to: '.claude' },
-  { from: '.agents', to: '.cursor/rules' },
-]
-```
+一个源仍可通过 `to` 数组配置多个目标，或通过多条 `agentsMarkdown` / `agentsSkills` 规则扩展。
 
 ### 语言
 
-| 值       | 行为                           |
-| :------- | :----------------------------- |
-| `auto`   | 自动检测系统语言，中英双语输出 |
-| `en`     | 纯英文                         |
-| `zh-CN`  | 纯中文                         |
+| 值      | 行为                           |
+| :------ | :----------------------------- |
+| `auto`  | 自动检测系统语言，中英双语输出 |
+| `en`    | 纯英文                         |
+| `zh-CN` | 纯中文                         |
 
 ## 工作原理
 
-- **文件映射**：`AGENTS.md` → `CLAUDE.md` 创建单个符号链接
-- **目录映射**：`.agents` → `.claude` 创建整个目录的单个符号链接
-- **一对多**：一个源可以链接到多个目标
-- **幂等性**：可安全重复执行，已正确链接的文件会自动跳过
-- **失效清理**：自动移除目标目录中源端已不存在的符号链接
+- **文档规则（`agentsMarkdown`）**：例如 `**/AGENTS.md` 配 `CLAUDE.md`，在每个命中的 `AGENTS.md` 同目录下生成 `CLAUDE.md` 链接；glob 遵守 `.gitignore`（含子目录中的忽略文件）。
+- **目录规则（agentsSkills）**：例如 `.agents` → `.claude` 表示在 `.agents` 的父目录下创建指向 `.agents` 的 `.claude` 符号链接。
+- **可选 `links`**：任意字面量 `from` / `to`。
+- **一对多**：`to` 多项目或多条规则。
+- **幂等性**：可安全重复执行，已正确链接的会自动跳过。
 
 ## 命令行
 
@@ -86,7 +92,7 @@ skillink --help            # 显示帮助
   - `删除并覆盖`
   - `跳过该映射`
 - `.gitignore` 会检测已存在条目并跳过；同一轮重复条目会自动去重
-- 同步结束后会输出“共处理多少条映射”
+- 同步结束后会输出「共处理多少条映射」
 
 ### 报错语言规则
 
@@ -111,14 +117,14 @@ skillink lock
 # 加密指定文件
 skillink lock .env .mcp.json
 
-# 还原配置中的文件
+# 无参数还原：优先按 skillink.encrypt.json 中的列表；若无清单则回退到配置里的 encrypt
 skillink unlock
 
-# 还原指定文件
+# 只还原指定文件
 skillink unlock .mcp.json
 ```
 
-在 `skillink.config.ts` 中配置需要加密的文件列表：
+在 `skillink.config.ts` 中配置 `lock` 的默认候选（以及 `unlock` 无参且无清单时的回退列表）：
 
 ```typescript
 export default {
@@ -127,19 +133,19 @@ export default {
 };
 ```
 
-- `lock` 读取文件内容，使用 AES-256-CBC 加密后写入 `.lock` 文件，原始文件保留
-- `unlock` 读取 `.lock` 文件解密还原，存在则替换、不存在则创建，`.lock` 文件保留
-- 原始文件和 `.lock` 文件均保留，由你决定哪些提交到版本控制
+- `lock` 使用 AES-256-CBC 写入 `*.lock`，保留明文，并把相对路径**合并写入 `skillink.encrypt.json`**
+- `unlock` 从 `*.lock` 还原；无文件参数时优先使用清单中的路径
+- 原始文件与 `.lock` 均保留，由你决定提交哪些
 
 ## 编程接口
 
 ```typescript
-import { defineConfig, loadConfig } from '@boses/skillink';
+import { defineConfig, loadConfig, resolveLinkMappings } from '@boses/skillink';
 ```
 
 ## Git 建议
 
-- 推荐提交：`skillink.config.ts`、`AGENTS.md`、`.agents/**`
+- 推荐提交：`skillink.config.ts`、`skillink.encrypt.json`（按需）、`AGENTS.md`、`.agents/**`
 - 忽略：链接目标（如 `CLAUDE.md`、`.claude/`）
 - `npx @boses/skillink` 会提示将这些路径添加到 `.gitignore`
 

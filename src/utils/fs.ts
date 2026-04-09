@@ -48,8 +48,12 @@ export async function createSymlink(
   const isDir = targetStats.isDirectory();
   const type =
     process.platform === 'win32'
-      ? (isDir ? 'junction' : 'file')
-      : (isDir ? 'dir' : 'file');
+      ? isDir
+        ? 'junction'
+        : 'file'
+      : isDir
+        ? 'dir'
+        : 'file';
 
   // 使用 lstat 判断路径是否存在，这样可正确识别损坏的符号链接
   try {
