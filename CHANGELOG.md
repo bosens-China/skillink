@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/bosens-China/skillink/compare/v3.0.0...v3.1.0) (2026-04-13)
+
+
+### Features
+
+* 改进交互流程，对lock文件防篡改验证 ([8bde6dd](https://github.com/bosens-China/skillink/commit/8bde6dd5dcfb05c2c4a4ef3351554de30dfd0aaa))
+
 ## [3.0.0](https://github.com/bosens-China/skillink/compare/v2.1.3...v3.0.0) (2026-04-09)
 
 
