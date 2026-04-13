@@ -1,154 +1,119 @@
 # Skillink
 
+[![npm version](https://img.shields.io/npm/v/@boses/skillink.svg)](https://www.npmjs.com/package/@boses/skillink)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-**Skillink** 是一个 AI 工具配置的符号链接管理工具。
-随着 AI 工具逐渐统一到 `AGENTS.md` 和 `.agents/` 标准，部分工具（如 Claude Code）仍维护着自己的生态体系，导致切换 AI 工具时产生割裂感。Skillink 通过符号链接将你的配置同步到各处，弥合这一鸿沟。
+**Skillink** 是一个专为 AI 工具配置设计的强大符号链接（Symlink）管理器。
 
-> 核心理念：**一次编写，处处生效。**
+随着 AI 工具的快速发展，许多工具开始在 `AGENTS.md` 和 `.agents/` 等标准上达成共识。然而，仍有一些生态（如 Claude Code）维持着碎片化的目录结构。Skillink 通过智能软链接同步你的 Agent 定义和技能，桥接不同工具之间的鸿沟。
 
-## 快速开始
+> **核心理念：** 一次编写，多端同步，完美兼容。
+
+## ✨ 核心特性
+
+- **🚀 智能初始化**：交互式引导，自动检测系统语言并一键配置 `.gitignore`。
+- **🔗 统一同步**：支持复杂的 Glob 模式（如 `**/AGENTS.md`），自动解析并建立扁平化的链接结构。
+- **🛡️ 安全加密**：使用行业标准的 **AES-256-GCM** 算法加密敏感的 MCP 配置或 `.env` 文件，并附带完整性校验。
+- **🖥️ 跨平台优化**：针对 macOS、Linux 和 Windows 进行了深度优化（Windows 下使用 Junction，并提供权限提升降级方案）。
+- **🌐 深度国际化**：智能 `auto` 语言检测，提供专业的中英双语输出。
+- **⚙️ 开发者优先**：支持交互式提示、命令行参数（`--yes`）和环境变量（CI/CD 友好）。
+
+## 🚀 快速开始
 
 ```bash
 npx @boses/skillink
 ```
 
-就这么简单。工具会自动执行：
+在首次运行时，Skillink 将：
+1.  **询问** 你的语言偏好。
+2.  **生成** `skillink.config.ts` 配置文件（如果不存在）。
+3.  **扫描** 项目中的 `AGENTS.md` 和 `.agents/` 目录。
+4.  **提示** 将生成的目标路径加入 `.gitignore`。
+5.  **创建** 软链接，桥接你的 AI 工具。
 
-1. 如果不存在 `skillink.config.ts`，自动创建
-2. 按 glob 找到所有 `AGENTS.md`（遵守 `.gitignore`），在每个文件旁链接出 `CLAUDE.md`
-3. 将 `.agents` 链接为同级的 `.claude`（目录级符号链接）
-4. 询问是否将链接目标路径添加到 `.gitignore`
-
-### 跳过确认
+### 自动化模式 (CI/CD)
 
 ```bash
 npx @boses/skillink --yes
 ```
 
-## 配置
+## 🛠 配置说明
 
-首次运行后可编辑 `skillink.config.ts`：
+编辑 `skillink.config.ts` 自定义同步逻辑：
 
 ```typescript
-export default {
+import { defineConfig } from '@boses/skillink';
+
+export default defineConfig({
   locale: 'auto', // 'auto' | 'en' | 'zh-CN'
-  // Agent 文档：glob（遵守 gitignore）；to 相对于每个命中文件所在目录
+  
+  // 文件规则：同步文档类配置
   agentsMarkdown: [
     {
       from: '**/AGENTS.md',
       to: ['CLAUDE.md'],
     },
   ],
-  // Skills 目录：to 与命中的源目录「同级」（在源目录的父目录下，如 .agents 旁生成 .claude）
+  
+  // 目录规则：同步技能目录
   agentsSkills: [
     {
       from: '.agents',
       to: ['.claude'],
     },
   ],
-  // 可选：其它字面量映射（不支持 glob）
-  // links: [{ from: 'extra.txt', to: 'extra.link.txt' }],
-  encrypt: ['.mcp.json'],
-};
+  
+  // 需要通过 lock 命令加密的敏感文件
+  encrypt: ['.mcp.json', '.env'],
+});
 ```
 
-顶层字段均可选。`export default {}` 合法：**sync** 不会建立任何链接并正常结束（无映射目标时也不会往 `.gitignore` 写路径）。
+## ⌨️ CLI 命令
 
-一个源仍可通过 `to` 数组配置多个目标，或通过多条 `agentsMarkdown` / `agentsSkills` 规则扩展。
+| 命令 | 描述 |
+| :--- | :--- |
+| `skillink [root]` | 通过符号链接同步文件（默认命令） |
+| `skillink lock [files...]` | 将文件加密为 `.lock` 格式 |
+| `skillink unlock [files...]` | 将 `.lock` 文件解密还原 |
+| `-y, --yes` | 跳过所有交互确认（严格模式） |
+| `-p, --password <pwd>` | 提供加解密密码（也可使用 `SKILLINK_PASSWORD` 环境变量） |
+| `--version` | 显示版本号 |
 
-### 语言
+### 同步行为与安全
 
-| 值      | 行为                           |
-| :------ | :----------------------------- |
-| `auto`  | 自动检测系统语言，中英双语输出 |
-| `en`    | 纯英文                         |
-| `zh-CN` | 纯中文                         |
+- **冲突处理**：如果目标路径（如 `CLAUDE.md`）已存在且是一个**真实文件/目录**（非软链接），Skillink 会提示你选择 `覆盖` 或 `跳过`。
+- **严格模式 (`--yes`)**：在自动化场景中，安全第一。如果检测到冲突，Skillink 会 **报错并退出**，而不是静默覆盖你的原始数据。
+- **根目录边界**：所有解析后的 `from` / `to` 路径都必须位于当前项目根目录内。像 `../` 这类会逃逸出根目录的映射会被直接拒绝。
+- **幂等性**：支持多次运行，仅更新已变更的链接。
 
-## 工作原理
+## 🔒 安全加固 (Lock/Unlock)
 
-- **文档规则（`agentsMarkdown`）**：例如 `**/AGENTS.md` 配 `CLAUDE.md`，在每个命中的 `AGENTS.md` 同目录下生成 `CLAUDE.md` 链接；glob 遵守 `.gitignore`（含子目录中的忽略文件）。
-- **目录规则（agentsSkills）**：例如 `.agents` → `.claude` 表示在 `.agents` 的父目录下创建指向 `.agents` 的 `.claude` 符号链接。
-- **可选 `links`**：任意字面量 `from` / `to`。
-- **一对多**：`to` 多项目或多条规则。
-- **幂等性**：可安全重复执行，已正确链接的会自动跳过。
-
-## 命令行
-
-```sh
-skillink [root]            # 通过符号链接同步文件
-skillink lock [files...]   # 加密文件为 .lock 文件
-skillink unlock [files...] # 还原 .lock 文件
-skillink --yes, -y         # 跳过所有交互确认
-skillink --version         # 显示版本
-skillink --help            # 显示帮助
-```
-
-### 同步行为
-
-- `--yes` 为严格模式：如果目标目录已存在且不是符号链接，会直接抛错并终止
-- 交互模式使用下拉选择（不是 y/n）
-- 当目标目录已存在且不是符号链接时，可选择：
-  - `删除并覆盖`
-  - `跳过该映射`
-- `.gitignore` 会检测已存在条目并跳过；同一轮重复条目会自动去重
-- 同步结束后会输出「共处理多少条映射」
-
-### 报错语言规则
-
-- `locale: 'auto'`：中英双语输出
-- `locale: 'zh-CN'`：仅中文
-- `locale: 'en'`：仅英文
-
-### Windows 说明
-
-- Windows 下目录链接使用 `junction`，兼容性更好
-- Windows 下文件符号链接可能需要开启开发者模式或更高权限
-- 若创建文件符号链接报 `EPERM`，请开启开发者模式或以管理员权限运行终端
-
-### 加密 / 还原
-
-使用 `lock` 和 `unlock` 命令加密敏感配置文件（如 `.mcp.json`、`.env`），使其可以安全提交到版本控制。
+使用 `lock` 加密敏感文件，以便安全地提交到版本控制。
 
 ```bash
-# 加密配置中的文件（默认: .mcp.json）
+# 加密配置中列出的文件。未通过 -p 或环境变量提供密码时会弹出交互提示。
 skillink lock
 
-# 加密指定文件
-skillink lock .env .mcp.json
-
-# 无参数还原：优先按 skillink.encrypt.json 中的列表；若无清单则回退到配置里的 encrypt
+# 解密并还原原始文件
 skillink unlock
-
-# 只还原指定文件
-skillink unlock .mcp.json
 ```
 
-在 `skillink.config.ts` 中配置 `lock` 的默认候选（以及 `unlock` 无参且无清单时的回退列表）：
+- **算法**：AES-256-GCM（带认证的加密）。
+- **清单**：在 `skillink.encrypt.json` 中记录加密文件，方便一键还原。
+- **隐私**：原始文件与 `.lock` 文件均保留在本地，由你决定提交哪些。
 
-```typescript
-export default {
-  // ...
-  encrypt: ['.mcp.json', '.env'],
-};
-```
+## 🤝 参与贡献
 
-- `lock` 使用 AES-256-CBC 写入 `*.lock`，保留明文，并把相对路径**合并写入 `skillink.encrypt.json`**
-- `unlock` 从 `*.lock` 还原；无文件参数时优先使用清单中的路径
-- 原始文件与 `.lock` 均保留，由你决定提交哪些
+欢迎贡献代码！无论是报告 Bug、建议新功能还是提交 Pull Request，我们都非常感谢你对 Skillink 的支持。
 
-## 编程接口
+1.  Fork 本仓库。
+2.  创建你的特性分支 (`git checkout -b feature/amazing-feature`)。
+3.  提交你的更改 (`git commit -m 'Add some amazing feature'`)。
+4.  推送到分支 (`git push origin feature/amazing-feature`)。
+5.  发起 Pull Request。
 
-```typescript
-import { defineConfig, loadConfig, resolveLinkMappings } from '@boses/skillink';
-```
+## 📜 开源协议
 
-## Git 建议
-
-- 推荐提交：`skillink.config.ts`、`skillink.encrypt.json`（按需）、`AGENTS.md`、`.agents/**`
-- 忽略：链接目标（如 `CLAUDE.md`、`.claude/`）
-- `npx @boses/skillink` 会提示将这些路径添加到 `.gitignore`
-
-## 许可证
-
-MIT
+本项目采用 **MIT License**。详情请参阅 `LICENSE` 文件。

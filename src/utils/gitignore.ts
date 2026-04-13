@@ -14,6 +14,32 @@ function normalizeGitignoreEntry(entry: string): string {
 }
 
 /**
+ * 将目标路径收敛为一次性的 .gitignore 条目。
+ * 例如任意层级的 pkg/a/CLAUDE.md 最终都只写入 CLAUDE.md 一次。
+ */
+export function collectGitignoreEntries(targets: string[]): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const target of targets) {
+    const normalizedTarget = normalizeGitignoreEntry(target);
+    if (!normalizedTarget) {
+      continue;
+    }
+
+    const name = normalizeGitignoreEntry(path.posix.basename(normalizedTarget));
+    if (!name || seen.has(name)) {
+      continue;
+    }
+
+    seen.add(name);
+    result.push(name);
+  }
+
+  return result;
+}
+
+/**
  * 将条目追加到 .gitignore（跳过已存在的条目）
  */
 export async function addToGitignore(

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SkillinkError, formatErrorMessage } from '../src/utils/errors.js';
 import { resolveLocale, isChineseLocale, t } from '../src/utils/locale.js';
 
 describe('locale utils', () => {
@@ -35,5 +36,16 @@ describe('locale utils', () => {
 
   it('t 函数在 zh-CN 模式返回纯中文', () => {
     expect(t('中文', 'English', 'zh-CN', 'zh-CN')).toBe('中文');
+  });
+
+  it('formatErrorMessage 会输出国际化错误文案', () => {
+    const error = new SkillinkError(
+      'INVALID_ENCRYPTED_FORMAT',
+      'Invalid encrypted format',
+    );
+    expect(formatErrorMessage(error, 'zh-CN', 'zh-CN')).toBe(
+      '加密内容格式无效',
+    );
+    expect(formatErrorMessage(error, 'en')).toBe('Invalid encrypted format');
   });
 });

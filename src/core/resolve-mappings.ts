@@ -8,11 +8,39 @@ import type {
   LinkMapping,
   SkillinkConfig,
 } from '@/types/index.js';
+import { SkillinkError } from '@/utils/errors.js';
 
 const GLOB_CHARS = /[*?[\]{}]/;
 
 function isGlobPattern(p: string): boolean {
   return GLOB_CHARS.test(p);
+}
+
+function isWithinRoot(root: string, absolutePath: string): boolean {
+  const relativePath = path.relative(root, absolutePath);
+  return (
+    relativePath === '' ||
+    (!relativePath.startsWith(`..${path.sep}`) &&
+      relativePath !== '..' &&
+      !path.isAbsolute(relativePath))
+  );
+}
+
+function assertWithinRoot(
+  root: string,
+  absolutePath: string,
+  field: string,
+  value: string,
+): void {
+  if (!isWithinRoot(root, absolutePath)) {
+    throw new SkillinkError(
+      'PATH_OUTSIDE_ROOT',
+      `Mapping path cannot escape project root: ${field} = ${value}`,
+      {
+        meta: { field, value },
+      },
+    );
+  }
 }
 
 /** 规范为相对 root 的 POSIX 路径，供 LinkMapping 使用 */
@@ -34,6 +62,7 @@ async function expandAgentsMarkdown(
   // 无 glob 元字符时直接 stat，避免部分环境下对点目录/文件的匹配差异
   if (!isGlobPattern(rule.from)) {
     const absSource = path.resolve(root, rule.from);
+    assertWithinRoot(root, absSource, 'agentsMarkdown.from', rule.from);
     if (!existsSync(absSource)) {
       return [];
     }
@@ -46,6 +75,7 @@ async function expandAgentsMarkdown(
     const out: LinkMapping[] = [];
     for (const toPart of rule.to) {
       const absTo = path.resolve(sourceDir, toPart);
+      assertWithinRoot(root, absTo, 'agentsMarkdown.to', toPart);
       out.push({
         from: relPosix,
         to: toRelPosix(root, absTo),
@@ -68,6 +98,7 @@ async function expandAgentsMarkdown(
     const sourceDir = path.dirname(absSource);
     for (const toPart of rule.to) {
       const absTo = path.resolve(sourceDir, toPart);
+      assertWithinRoot(root, absTo, 'agentsMarkdown.to', toPart);
       out.push({
         from: relPosix,
         to: toRelPosix(root, absTo),
@@ -90,6 +121,7 @@ async function expandAgentsSkills(
 
   if (!isGlobPattern(rule.from)) {
     const absSourceDir = path.resolve(root, rule.from);
+    assertWithinRoot(root, absSourceDir, 'agentsSkills.from', rule.from);
     if (!existsSync(absSourceDir)) {
       return [];
     }
@@ -103,6 +135,7 @@ async function expandAgentsSkills(
     const out: LinkMapping[] = [];
     for (const toPart of rule.to) {
       const absTo = path.resolve(parentDir, toPart);
+      assertWithinRoot(root, absTo, 'agentsSkills.to', toPart);
       out.push({
         from: relPosix,
         to: toRelPosix(root, absTo),
@@ -125,6 +158,7 @@ async function expandAgentsSkills(
     const parentDir = path.dirname(absSourceDir);
     for (const toPart of rule.to) {
       const absTo = path.resolve(parentDir, toPart);
+      assertWithinRoot(root, absTo, 'agentsSkills.to', toPart);
       out.push({
         from: relPosix,
         to: toRelPosix(root, absTo),
@@ -139,14 +173,17 @@ async function expandAgentsSkills(
  */
 function expandLiteralLinks(root: string, links: LinkMapping[]): LinkMapping[] {
   const out: LinkMapping[] = [];
-  for (const link of links) {
+  for (const [index, link] of links.entries()) {
     const fromAbs = path.resolve(root, link.from);
+    assertWithinRoot(root, fromAbs, `links[${index}].from`, link.from);
     if (!existsSync(fromAbs)) {
       continue;
     }
+    const toAbs = path.resolve(root, link.to);
+    assertWithinRoot(root, toAbs, `links[${index}].to`, link.to);
     out.push({
       from: toRelPosix(root, fromAbs),
-      to: toRelPosix(root, path.resolve(root, link.to)),
+      to: toRelPosix(root, toAbs),
     });
   }
   return out;
@@ -179,11 +216,12 @@ export async function resolveLinkMappings(
   root: string,
   config: SkillinkConfig,
 ): Promise<ResolveLinkMappingsResult> {
+  const resolvedRoot = path.resolve(root);
   const all: LinkMapping[] = [];
   const warnings: string[] = [];
 
   for (const rule of config.agentsMarkdown ?? []) {
-    const part = await expandAgentsMarkdown(root, rule);
+    const part = await expandAgentsMarkdown(resolvedRoot, rule);
     if (part.length === 0 && rule.to.length > 0) {
       warnings.push(`agentsMarkdown.from "${rule.from}"`);
     }
@@ -191,7 +229,7 @@ export async function resolveLinkMappings(
   }
 
   for (const rule of config.agentsSkills ?? []) {
-    const part = await expandAgentsSkills(root, rule);
+    const part = await expandAgentsSkills(resolvedRoot, rule);
     if (part.length === 0 && rule.to.length > 0) {
       warnings.push(`agentsSkills.from "${rule.from}"`);
     }
@@ -199,7 +237,7 @@ export async function resolveLinkMappings(
   }
 
   if (config.links?.length) {
-    all.push(...expandLiteralLinks(root, config.links));
+    all.push(...expandLiteralLinks(resolvedRoot, config.links));
   }
 
   return { mappings: dedupeMappings(all), warnings };

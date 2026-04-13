@@ -73,7 +73,6 @@ export class Linker {
     }
 
     const fromStats = await fs.lstat(fromPath);
-    const fromType = fromStats.isDirectory() ? '目录' : '文件';
 
     await ensureDir(path.dirname(toPath));
 
@@ -86,85 +85,68 @@ export class Linker {
         }
       } else {
         const toStats = await fs.lstat(toPath);
-        const toType = toStats.isDirectory() ? '目录' : '文件';
+        const isToDir = toStats.isDirectory();
 
-        if (fromStats.isDirectory() !== toStats.isDirectory()) {
+        // 双语类型标签
+        const toTypeZh = isToDir ? '目录' : '文件';
+        const toTypeEn = isToDir ? 'directory' : 'file';
+
+        // 文件类型相同时检查是否为同一物理文件（Hardlink 等情况）
+        if (
+          !fromStats.isDirectory() &&
+          !isToDir &&
+          fromStats.dev === toStats.dev &&
+          fromStats.ino === toStats.ino
+        ) {
+          return true;
+        }
+
+        // 目标已存在且不是符号链接时，交互模式可选择覆盖；--yes 模式直接失败终止
+        if (this.options.autoConfirm) {
           throw new Error(
             t(
-              `目标路径已存在且类型不匹配：源是${fromType}，目标是${toType}。请先手动清理目标路径：${toPath}`,
-              `Target path exists with mismatched type: source is ${fromStats.isDirectory() ? 'directory' : 'file'}, target is ${toStats.isDirectory() ? 'directory' : 'file'}. Please clean target first: ${toPath}`,
+              `目标${toTypeZh}已存在且不是符号链接，--yes 模式下不会自动删除：${toPath}`,
+              `Target ${toTypeEn} exists and is not a symlink; in --yes mode it will not be deleted automatically: ${toPath}`,
               this.options.locale ?? 'en',
               this.options.configLocale,
             ),
           );
         }
 
-        // 目录已存在且不是符号链接时，交互模式可选择覆盖；--yes 模式直接失败终止
-        if (fromStats.isDirectory() && toStats.isDirectory()) {
-          if (this.options.autoConfirm) {
-            throw new Error(
-              t(
-                `目标目录已存在且不是符号链接，--yes 模式下不会自动删除：${toPath}`,
-                `Target directory exists and is not a symlink; in --yes mode it will not be deleted automatically: ${toPath}`,
+        const action = await select({
+          message: t(
+            `目标${toTypeZh}已存在且不是符号链接，是否删除并覆盖？${path.relative(this.root, toPath)}`,
+            `Target ${toTypeEn} exists and is not a symlink. Delete and overwrite? ${path.relative(this.root, toPath)}`,
+            this.options.locale ?? 'en',
+            this.options.configLocale,
+          ),
+          choices: [
+            {
+              name: t(
+                '删除并覆盖',
+                'Delete and overwrite',
                 this.options.locale ?? 'en',
                 this.options.configLocale,
               ),
-            );
-          }
+              value: 'overwrite',
+            },
+            {
+              name: t(
+                '跳过该映射',
+                'Skip this mapping',
+                this.options.locale ?? 'en',
+                this.options.configLocale,
+              ),
+              value: 'skip',
+            },
+          ],
+        });
 
-          const action = await select({
-            message: t(
-              `目标目录已存在且不是符号链接，是否删除并覆盖？${path.relative(this.root, toPath)}`,
-              `Target directory exists and is not a symlink. Delete and overwrite? ${path.relative(this.root, toPath)}`,
-              this.options.locale ?? 'en',
-              this.options.configLocale,
-            ),
-            choices: [
-              {
-                name: t(
-                  '删除并覆盖',
-                  'Delete and overwrite',
-                  this.options.locale ?? 'en',
-                  this.options.configLocale,
-                ),
-                value: 'overwrite',
-              },
-              {
-                name: t(
-                  '跳过该映射',
-                  'Skip this mapping',
-                  this.options.locale ?? 'en',
-                  this.options.configLocale,
-                ),
-                value: 'skip',
-              },
-            ],
-          });
-
-          if (action === 'skip') {
-            return false;
-          }
-
-          await fs.rm(toPath, { recursive: true, force: true });
-        } else if (!fromStats.isDirectory() && !toStats.isDirectory()) {
-          const isSameFile =
-            fromStats.dev === toStats.dev && fromStats.ino === toStats.ino;
-          // 文件映射：如果不是同一文件（例如源文件被替换后），自动重建链接以保持同步
-          if (!isSameFile) {
-            await fs.unlink(toPath);
-          } else {
-            return true;
-          }
-        } else {
-          throw new Error(
-            t(
-              `目标路径已存在且不是符号链接（${toType}）。请先手动清理后重试：${toPath}`,
-              `Target path exists and is not a symlink (${toStats.isDirectory() ? 'directory' : 'file'}). Please clean it first: ${toPath}`,
-              this.options.locale ?? 'en',
-              this.options.configLocale,
-            ),
-          );
+        if (action === 'skip') {
+          return false;
         }
+
+        await fs.rm(toPath, { recursive: true, force: true });
       }
     }
 

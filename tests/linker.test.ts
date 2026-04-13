@@ -6,7 +6,6 @@ import { Linker } from '../src/core/linker.js';
 import type { LinkerConfig } from '../src/types/index.js';
 
 const tempDirs: string[] = [];
-const canRunFileSymlinkCases = process.platform !== 'win32';
 
 async function createTempDir() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'skillink-linker-test-'));
@@ -32,7 +31,7 @@ afterEach(async () => {
 });
 
 describe('Linker.sync', () => {
-  it.skipIf(!canRunFileSymlinkCases)('文件映射：创建符号链接', async () => {
+  it('文件映射：创建符号链接', async () => {
     const root = await createTempDir();
     const agentsMd = path.join(root, 'AGENTS.md');
     await fs.writeFile(agentsMd, '# Agents');
@@ -81,7 +80,7 @@ describe('Linker.sync', () => {
     expect(content).toBe('# File 1');
   });
 
-  it.skipIf(!canRunFileSymlinkCases)('幂等性：重复执行不报错', async () => {
+  it('幂等性：重复执行不报错', async () => {
     const root = await createTempDir();
     await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
 
@@ -109,28 +108,25 @@ describe('Linker.sync', () => {
     expect(await exists(path.join(root, 'output.txt'))).toBe(false);
   });
 
-  it.skipIf(!canRunFileSymlinkCases)(
-    '一对多映射：一个源链接到多个目标',
-    async () => {
-      const root = await createTempDir();
-      await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
+  it('一对多映射：一个源链接到多个目标', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
 
-      const config: LinkerConfig = {
-        links: [
-          { from: 'AGENTS.md', to: 'CLAUDE.md' },
-          { from: 'AGENTS.md', to: 'nested/rules/AGENTS.md' },
-        ],
-      };
+    const config: LinkerConfig = {
+      links: [
+        { from: 'AGENTS.md', to: 'CLAUDE.md' },
+        { from: 'AGENTS.md', to: 'nested/rules/AGENTS.md' },
+      ],
+    };
 
-      const linker = new Linker(root, config);
-      await linker.sync();
+    const linker = new Linker(root, config);
+    await linker.sync();
 
-      expect(await exists(path.join(root, 'CLAUDE.md'))).toBe(true);
-      expect(
-        await exists(path.join(root, 'nested', 'rules', 'AGENTS.md')),
-      ).toBe(true);
-    },
-  );
+    expect(await exists(path.join(root, 'CLAUDE.md'))).toBe(true);
+    expect(await exists(path.join(root, 'nested', 'rules', 'AGENTS.md'))).toBe(
+      true,
+    );
+  });
 
   it('--yes 模式下目标目录已存在且非链接时抛错', async () => {
     const root = await createTempDir();
@@ -164,15 +160,16 @@ describe('Linker.sync', () => {
     };
 
     const linker = new Linker(root, config, {
+      autoConfirm: true,
       locale: 'zh-CN',
       configLocale: 'auto',
     });
 
     await expect(linker.sync()).rejects.toThrow(
-      '目标路径已存在且类型不匹配：源是文件，目标是目录',
+      '目标目录已存在且不是符号链接，--yes 模式下不会自动删除',
     );
     await expect(linker.sync()).rejects.toThrow(
-      'Target path exists with mismatched type: source is file, target is directory',
+      'Target directory exists and is not a symlink; in --yes mode it will not be deleted automatically',
     );
   });
 

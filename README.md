@@ -1,154 +1,119 @@
 # Skillink
 
+[![npm version](https://img.shields.io/npm/v/@boses/skillink.svg)](https://www.npmjs.com/package/@boses/skillink)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-**Skillink** is a symlink manager for AI tool configs.
-As AI tools gradually unify on `AGENTS.md` and `.agents/`, some (like Claude Code) still maintain their own ecosystem — causing fragmentation when switching tools. Skillink bridges this gap by syncing your configs everywhere with symlinks.
+**Skillink** is a robust symlink manager designed specifically for AI tool configurations.
 
-> Core idea: **Write once, use everywhere.**
+In the rapidly evolving AI landscape, tools are beginning to converge on standards like `AGENTS.md` and `.agents/`. However, many ecosystems (like Claude Code) still maintain their own fragmented directories. Skillink bridges this gap by synchronizing your agent definitions and skills across all your tools using smart symlinks.
 
-## Quick Start
+> **Core Philosophy:** Write once, sync everywhere, stay compatible.
+
+## ✨ Key Features
+
+- **🚀 Smart Initialization**: Interactive onboarding that detects your system language and sets up `.gitignore` automatically.
+- **🔗 Unified Syncing**: Resolve complex glob patterns (e.g., `**/AGENTS.md`) into flat symlink structures.
+- **🛡️ Secure Encryption**: Protect sensitive MCP configs or `.env` files using industry-standard **AES-256-GCM** with integrity checks.
+- **🖥️ Cross-Platform**: Optimized for macOS, Linux, and Windows (uses Junctions and provides elevation fallbacks).
+- **🌐 Bilingual Support**: Intelligent `auto` locale detection with clear, professional output in both English and Chinese.
+- **⚙️ Developer-First CLI**: Supports interactive prompts, CLI flags (`--yes`), and environment variables for CI/CD.
+
+## 🚀 Quick Start
 
 ```bash
 npx @boses/skillink
 ```
 
-That's it. The tool will:
+On your first run, Skillink will:
+1.  **Ask** for your preferred language.
+2.  **Generate** a `skillink.config.ts` if it doesn't exist.
+3.  **Scan** for `AGENTS.md` and `.agents/` directories.
+4.  **Prompt** to add generated targets to your `.gitignore`.
+5.  **Create** the symlinks to bridge your AI tools.
 
-1. Create `skillink.config.ts` if it doesn't exist
-2. Symlink every `AGENTS.md` matched by glob (respecting `.gitignore`) → `CLAUDE.md` next to each file
-3. Symlink `.agents/` → `.claude/` beside the source directory
-4. Prompt to add linked paths to `.gitignore`
-
-### Skip Prompts
+### Automation Mode (CI/CD)
 
 ```bash
 npx @boses/skillink --yes
 ```
 
-## Configuration
+## 🛠 Configuration
 
-After first run, edit `skillink.config.ts`:
+Edit `skillink.config.ts` to customize your linking logic:
 
 ```typescript
-export default {
+import { defineConfig } from '@boses/skillink';
+
+export default defineConfig({
   locale: 'auto', // 'auto' | 'en' | 'zh-CN'
-  // Agent docs: glob (gitignore-aware); each `to` is relative to each matched file's directory
+  
+  // File rules: Sync documentation across tools
   agentsMarkdown: [
     {
       from: '**/AGENTS.md',
       to: ['CLAUDE.md'],
     },
   ],
-  // Skills dirs: each `to` is beside the matched source dir (same parent as `.agents`)
+  
+  // Directory rules: Sync skill directories
   agentsSkills: [
     {
       from: '.agents',
       to: ['.claude'],
     },
   ],
-  // Optional extra symlinks (no glob)
-  // links: [{ from: 'extra.txt', to: 'extra.link.txt' }],
-  encrypt: ['.mcp.json'],
-};
+  
+  // Sensitive files to be encrypted via 'lock' command
+  encrypt: ['.mcp.json', '.env'],
+});
 ```
 
-All top-level fields are optional. `export default {}` is valid: **sync** will resolve zero mappings and exit without error (aside from optional `.gitignore` prompts when there are no targets).
+## ⌨️ CLI Usage
 
-One logical source can still map to many targets by listing multiple entries in `to`, or by adding more rules under `agentsMarkdown` / `agentsSkills`.
+| Command | Description |
+| :--- | :--- |
+| `skillink [root]` | Sync files via symlinks (default command) |
+| `skillink lock [files...]` | Encrypt files to `.lock` format |
+| `skillink unlock [files...]` | Decrypt `.lock` files back to originals |
+| `-y, --yes` | Skip confirmation prompts (Strict Mode) |
+| `-p, --password <pwd>` | Provide password for lock/unlock (or use `SKILLINK_PASSWORD` env) |
+| `--version` | Show version |
 
-### Locale
+### Sync Behavior & Safety
 
-| Value   | Behavior                                 |
-| :------ | :--------------------------------------- |
-| `auto`  | Detect system language, bilingual output |
-| `en`    | English only                             |
-| `zh-CN` | Chinese only                             |
+- **Conflict Handling**: If a target (e.g., `CLAUDE.md`) exists and is a **real file/directory** (not a link), Skillink will prompt you to `Overwrite` or `Skip`.
+- **Strict Mode (`--yes`)**: In automation mode, Skillink prioritizes safety. If a conflict is detected, it will **fail and exit** rather than silently overwriting your data.
+- **Root Boundary**: All resolved `from` / `to` paths must stay within the current project root. Any mapping that escapes the root via paths like `../` will be rejected.
+- **Idempotency**: Safe to run repeatedly; it only updates links that have changed.
 
-## How It Works
+## 🔒 Security (Lock/Unlock)
 
-- **File rules (`agentsMarkdown`)**: e.g. `**/AGENTS.md` with `to: ['CLAUDE.md']` creates `CLAUDE.md` next to each matched `AGENTS.md` (glob respects `.gitignore`, including nested ignore files when using the default matcher).
-- **Directory rules (`agentsSkills`)**: e.g. `.agents` → `.claude` means a directory symlink at `.claude` pointing to `.agents` (targets are siblings of the source directory).
-- **Optional `links`**: literal `from`/`to` pairs for anything else.
-- **One-to-many**: Multiple entries in `to`, or multiple rules.
-- **Idempotent**: Safe to run multiple times, skips already-correct links
-
-## CLI
-
-```sh
-skillink [root]          # Sync files via symlinks
-skillink lock [files...] # Encrypt files to .lock files
-skillink unlock [files...] # Decrypt .lock files back to originals
-skillink --yes, -y       # Skip confirmation prompts
-skillink --version       # Show version
-skillink --help          # Show help
-```
-
-### Sync Behavior
-
-- `--yes` mode is strict: if target directory already exists and is not a symlink, Skillink throws and stops
-- Interactive mode uses a dropdown (not y/n) for conflict choices
-- If target directory exists and is not a symlink, you can choose:
-  - `Delete and overwrite`
-  - `Skip this mapping`
-- Existing `.gitignore` entries are detected and skipped; duplicated entries in one run are de-duplicated
-- At the end of sync, Skillink prints how many mappings were processed
-
-### Error Message Locale
-
-- `locale: 'auto'`: bilingual output (Chinese + English)
-- `locale: 'zh-CN'`: Chinese only
-- `locale: 'en'`: English only
-
-### Windows Notes
-
-- Directory links use `junction` on Windows for better compatibility
-- File symlinks on Windows may require Developer Mode or elevated permissions
-- If file symlink creation fails with `EPERM`, enable Developer Mode or run terminal as Administrator
-
-### Encrypt / Decrypt
-
-Use `lock` and `unlock` to encrypt sensitive config files (e.g. `.mcp.json`, `.env`) so they can be committed to version control without exposing secrets.
+Use `lock` to encrypt sensitive files so they can be committed to version control safely.
 
 ```bash
-# Encrypt files listed in config (default: .mcp.json)
+# Encrypts files listed in config. Prompts for password if not provided via -p or env.
 skillink lock
 
-# Encrypt specific files
-skillink lock .env .mcp.json
-
-# Decrypt: with no args, uses paths listed in skillink.encrypt.json if present; otherwise falls back to `encrypt` in config
+# Decrypts and restores originals
 skillink unlock
-
-# Decrypt specific files only
-skillink unlock .mcp.json
 ```
 
-Configure default candidates for `lock` (and `unlock` fallback) in `skillink.config.ts`:
+- **Algorithm**: AES-256-GCM (Authenticated Encryption).
+- **Manifest**: Tracks encrypted files in `skillink.encrypt.json` for easy restoration.
+- **Privacy**: Original files and `.lock` files are kept locally; you decide what to commit.
 
-```typescript
-export default {
-  // ...
-  encrypt: ['.mcp.json', '.env'],
-};
-```
+## 🤝 Contributing
 
-- `lock` writes AES-256-CBC ciphertext next to each file as `*.lock`, keeps originals, and **merges relative paths into `skillink.encrypt.json`**
-- `unlock` restores plaintext from `*.lock`; with no file arguments it prefers the manifest list
-- Original files and `.lock` files are both preserved — you control what goes into version control
+Contributions are welcome! Whether it's reporting a bug, suggesting a feature, or submitting a pull request, we appreciate your help in making Skillink better.
 
-## Programmatic Usage
+1.  Fork the repository.
+2.  Create your feature branch (`git checkout -b feature/amazing-feature`).
+3.  Commit your changes (`git commit -m 'Add some amazing feature'`).
+4.  Push to the branch (`git push origin feature/amazing-feature`).
+5.  Open a Pull Request.
 
-```typescript
-import { defineConfig, loadConfig, resolveLinkMappings } from '@boses/skillink';
-```
+## 📜 License
 
-## Git Recommendation
-
-- Commit: `skillink.config.ts`, `skillink.encrypt.json` (optional), `AGENTS.md`, `.agents/**`
-- Ignore: linked targets (e.g. `CLAUDE.md`, `.claude/`)
-- `npx @boses/skillink` will prompt to add these to `.gitignore`
-
-## License
-
-MIT
+Distributed under the **MIT License**. See `LICENSE` for more information.

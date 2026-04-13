@@ -50,10 +50,11 @@ export function hasConfigFile(cwd: string = process.cwd()): boolean {
  */
 export async function createDefaultConfig(
   cwd: string = process.cwd(),
+  locale: string = 'auto',
 ): Promise<string> {
   const configPath = path.join(cwd, 'skillink.config.ts');
   const content = `export default {
-  locale: 'auto',
+  locale: '${locale}',
   // Agent 文档：glob 匹配（遵守 .gitignore），to 相对于每个 AGENTS.md 所在目录
   agentsMarkdown: [
     {

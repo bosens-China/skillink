@@ -1,5 +1,19 @@
+import { createCipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { encrypt, decrypt } from '../src/utils/crypto.js';
+
+function createLegacyEncrypted(content: string, password: string): string {
+  const salt = randomBytes(16);
+  const key = scryptSync(password, salt, 32);
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-cbc', key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(content, 'utf8'),
+    cipher.final(),
+  ]);
+
+  return `${salt.toString('hex')}:${iv.toString('hex')}:${encrypted.toString('hex')}`;
+}
 
 describe('crypto', () => {
   it('should encrypt and decrypt roundtrip correctly', () => {
@@ -20,7 +34,7 @@ describe('crypto', () => {
     const enc2 = encrypt(content, password);
 
     expect(enc1).not.toBe(enc2);
-    // but both decrypt to the same content
+    // 但两份密文都应解密回同一内容
     expect(decrypt(enc1, password)).toBe(content);
     expect(decrypt(enc2, password)).toBe(content);
   });
@@ -35,6 +49,46 @@ describe('crypto', () => {
   it('should fail with invalid format', () => {
     expect(() => decrypt('invalid-data', 'password')).toThrow(
       'Invalid encrypted format',
+    );
+  });
+
+  it('should detect tampered ciphertext', () => {
+    const encrypted = encrypt('secret data', 'password');
+    const parts = encrypted.split(':');
+    const tamperedCiphertext =
+      parts[4].slice(0, -2) + (parts[4].endsWith('aa') ? 'bb' : 'aa');
+    const tampered = [
+      parts[0],
+      parts[1],
+      parts[2],
+      parts[3],
+      tamperedCiphertext,
+    ].join(':');
+
+    expect(() => decrypt(tampered, 'password')).toThrow();
+  });
+
+  it('should detect tampered auth tag', () => {
+    const encrypted = encrypt('secret data', 'password');
+    const parts = encrypted.split(':');
+    const tamperedAuthTag =
+      parts[3].slice(0, -2) + (parts[3].endsWith('aa') ? 'bb' : 'aa');
+    const tampered = [
+      parts[0],
+      parts[1],
+      parts[2],
+      tamperedAuthTag,
+      parts[4],
+    ].join(':');
+
+    expect(() => decrypt(tampered, 'password')).toThrow();
+  });
+
+  it('should reject legacy unauthenticated format', () => {
+    const legacyEncrypted = createLegacyEncrypted('secret data', 'password');
+
+    expect(() => decrypt(legacyEncrypted, 'password')).toThrow(
+      'Legacy encrypted format is not authenticated',
     );
   });
 

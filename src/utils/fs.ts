@@ -61,9 +61,6 @@ export async function createSymlink(
     if (stats.isSymbolicLink()) {
       // 如果是已存在的链接（包括失效链接），先删除再重建
       await fs.unlink(linkPath);
-    } else {
-      // 如果是普通文件或目录，抛出错误以防误删
-      throw new Error(`路径 ${linkPath} 已存在且不是符号链接，请手动清理。`);
     }
   } catch (error: unknown) {
     // 仅当路径不存在时忽略，其他异常继续抛出

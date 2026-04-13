@@ -1,19 +1,32 @@
 import type { Locale } from '../types/index.js';
 
 /**
- * 解析语言配置，auto 时检测系统语言
+ * 解析语言配置，auto 时自动检测系统语言
  */
 export function resolveLocale(configLocale?: Locale): 'en' | 'zh-CN' {
   if (configLocale && configLocale !== 'auto') {
     return configLocale;
   }
 
-  // auto: 检测系统语言
-  const lang =
-    process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES || '';
-  if (lang.toLowerCase().startsWith('zh')) {
-    return 'zh-CN';
+  // 1. 尝试从环境变量读取（类 Unix 环境）
+  const envLang = (
+    process.env.LANG ||
+    process.env.LC_ALL ||
+    process.env.LC_MESSAGES ||
+    ''
+  ).toLowerCase();
+  if (envLang.startsWith('zh')) return 'zh-CN';
+
+  // 2. 尝试从 Intl 对象读取（跨平台，兼容 Windows）
+  try {
+    const intlLocale = Intl.DateTimeFormat()
+      .resolvedOptions()
+      .locale.toLowerCase();
+    if (intlLocale.startsWith('zh')) return 'zh-CN';
+  } catch {
+    // 忽略异常
   }
+
   return 'en';
 }
 

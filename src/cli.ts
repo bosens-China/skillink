@@ -3,6 +3,8 @@ import { syncCommand } from './commands/sync.js';
 import { lockCommand } from './commands/lock.js';
 import { unlockCommand } from './commands/unlock.js';
 import { logger } from './utils/logger.js';
+import { formatErrorMessage } from './utils/errors.js';
+import { resolveLocale } from './utils/locale.js';
 import { currentVersion } from './utils/update.js';
 
 const cli = cac('skillink');
@@ -11,11 +13,17 @@ cli.version(currentVersion);
 
 cli
   .command('lock [files...]', 'Encrypt files to .lock / 加密文件为 .lock 文件')
-  .action((files: string[] | undefined) => lockCommand({ files }));
+  .option('-p, --password <password>', 'Encryption password / 加密密码')
+  .action((files: string[] | undefined, options) =>
+    lockCommand({ files, password: options.password }),
+  );
 
 cli
   .command('unlock [files...]', 'Decrypt .lock files / 还原 .lock 文件')
-  .action((files: string[] | undefined) => unlockCommand({ files }));
+  .option('-p, --password <password>', 'Decryption password / 解密密码')
+  .action((files: string[] | undefined, options) =>
+    unlockCommand({ files, password: options.password }),
+  );
 
 cli
   .command('[root]', 'Sync files via symlinks / 通过符号链接同步文件')
@@ -24,9 +32,14 @@ cli
 
 cli.help();
 
-try {
-  cli.parse();
-} catch (error: unknown) {
-  logger.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
+async function main() {
+  try {
+    await cli.parse();
+  } catch (error: unknown) {
+    const locale = resolveLocale();
+    logger.error(formatErrorMessage(error, locale));
+    process.exit(1);
+  }
 }
+
+void main();

@@ -2,7 +2,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
-import { addToGitignore } from '../src/utils/gitignore.js';
+import {
+  addToGitignore,
+  collectGitignoreEntries,
+} from '../src/utils/gitignore.js';
 
 const tempDirs: string[] = [];
 
@@ -62,5 +65,18 @@ describe('addToGitignore', () => {
     expect(result.added).toEqual([]);
     expect(result.skipped).toEqual(['.cursor/rules']);
     expect(content).toBe('.cursor/rules\n');
+  });
+});
+
+describe('collectGitignoreEntries', () => {
+  it('同名目标只生成一次忽略项，不保留子路径', () => {
+    const entries = collectGitignoreEntries([
+      'CLAUDE.md',
+      'packages/a/CLAUDE.md',
+      '.claude',
+      'packages/b/.claude/',
+    ]);
+
+    expect(entries).toEqual(['CLAUDE.md', '.claude']);
   });
 });

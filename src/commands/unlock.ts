@@ -17,6 +17,7 @@ const DEFAULT_ENCRYPT_FILES = ['.mcp.json'];
 export async function unlockCommand(options: {
   cwd?: string;
   files?: string[];
+  password?: string;
 }) {
   const cwd = options.cwd || process.cwd();
   const config = await loadConfig(cwd);
@@ -79,16 +80,19 @@ export async function unlockCommand(options: {
     return;
   }
 
-  // 提示输入密码
-  const pwd = await password({
-    message: t(
-      '输入解密密码',
-      'Enter decryption password',
-      locale,
-      config.locale,
-    ),
-    mask: '*',
-  });
+  // 获取密码：CLI 参数 > 环境变量 > 交互提示
+  const pwd =
+    options.password ||
+    process.env.SKILLINK_PASSWORD ||
+    (await password({
+      message: t(
+        '输入解密密码',
+        'Enter decryption password',
+        locale,
+        config.locale,
+      ),
+      mask: '*',
+    }));
 
   if (!pwd) {
     console.error(
