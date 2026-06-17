@@ -203,6 +203,29 @@ function dedupeMappings(mappings: LinkMapping[]): LinkMapping[] {
   return result;
 }
 
+/**
+ * 检测同一个 to 被多个不同 from 引用的冲突，避免静默后写覆盖。
+ */
+function detectConflicts(mappings: LinkMapping[]): void {
+  const byTo = new Map<string, Set<string>>();
+  for (const m of mappings) {
+    const set = byTo.get(m.to) ?? new Set<string>();
+    set.add(m.from);
+    byTo.set(m.to, set);
+  }
+  for (const [to, froms] of byTo) {
+    if (froms.size > 1) {
+      throw new SkillinkError(
+        'MAPPING_CONFLICT',
+        `Multiple sources mapped to the same target: ${to}`,
+        {
+          meta: { to, froms: [...froms].join(', ') },
+        },
+      );
+    }
+  }
+}
+
 export interface ResolveLinkMappingsResult {
   mappings: LinkMapping[];
   /** 某条规则的 from 未匹配到任何路径时的提示（用于控制台警告） */
@@ -240,5 +263,7 @@ export async function resolveLinkMappings(
     all.push(...expandLiteralLinks(resolvedRoot, config.links));
   }
 
-  return { mappings: dedupeMappings(all), warnings };
+  const deduped = dedupeMappings(all);
+  detectConflicts(deduped);
+  return { mappings: deduped, warnings };
 }

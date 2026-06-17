@@ -22,7 +22,7 @@ afterEach(async () => {
 });
 
 describe('syncCommand', () => {
-  it('已有配置文件时只按配置执行，不再写入 .gitignore', async () => {
+  it('--yes 模式下：缺失的 gitignore 条目会被自动追加', async () => {
     const root = await createTempDir();
     await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents', 'utf-8');
     await fs.writeFile(
@@ -42,10 +42,36 @@ describe('syncCommand', () => {
     await syncCommand({ cwd: root, yes: true });
 
     expect(existsSync(path.join(root, 'CLAUDE.md'))).toBe(true);
-    expect(existsSync(path.join(root, '.gitignore'))).toBe(false);
+    const gitignoreContent = await fs.readFile(
+      path.join(root, '.gitignore'),
+      'utf-8',
+    );
+    expect(gitignoreContent).toContain('CLAUDE.md');
   });
 
-  it('首次初始化时只写一次目标名到 .gitignore', async () => {
+  it('--yes 模式下：已有的 gitignore 条目不会重复追加', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents', 'utf-8');
+    await fs.writeFile(path.join(root, '.gitignore'), 'CLAUDE.md\n', 'utf-8');
+    await fs.writeFile(
+      path.join(root, 'skillink.config.mjs'),
+      `export default {
+  agentsMarkdown: [{ from: 'AGENTS.md', to: ['CLAUDE.md'] }],
+};
+`,
+      'utf-8',
+    );
+
+    await syncCommand({ cwd: root, yes: true });
+
+    const gitignoreContent = await fs.readFile(
+      path.join(root, '.gitignore'),
+      'utf-8',
+    );
+    expect(gitignoreContent).toBe('CLAUDE.md\n');
+  });
+
+  it('首次初始化时按检测方向生成配置 + .gitignore', async () => {
     const root = await createTempDir();
     await fs.writeFile(path.join(root, 'AGENTS.md'), '# Root', 'utf-8');
     await fs.mkdir(path.join(root, 'packages', 'demo'), { recursive: true });
@@ -58,14 +84,50 @@ describe('syncCommand', () => {
 
     await syncCommand({ cwd: root, yes: true });
 
+    expect(existsSync(path.join(root, 'skillink.config.ts'))).toBe(true);
     const gitignoreContent = await fs.readFile(
       path.join(root, '.gitignore'),
       'utf-8',
     );
-    expect(existsSync(path.join(root, 'skillink.config.ts'))).toBe(true);
-    expect(gitignoreContent.trim().split('\n')).toEqual([
-      'CLAUDE.md',
-      '.claude',
-    ]);
+    expect(gitignoreContent.trim().split('\n').sort()).toEqual(
+      ['CLAUDE.md', '.claude'].sort(),
+    );
+  });
+
+  it('反向检测：只有 .claude / CLAUDE.md 时生成反向模板', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'CLAUDE.md'), '# Claude', 'utf-8');
+    await fs.mkdir(path.join(root, '.claude'), { recursive: true });
+
+    await syncCommand({ cwd: root, yes: true });
+
+    const generated = await fs.readFile(
+      path.join(root, 'skillink.config.ts'),
+      'utf-8',
+    );
+    expect(generated).toContain("from: '**/CLAUDE.md'");
+    expect(generated).toContain("to: ['AGENTS.md']");
+    expect(generated).toContain("from: '.claude'");
+
+    expect(existsSync(path.join(root, 'AGENTS.md'))).toBe(true);
+    expect(existsSync(path.join(root, '.agents'))).toBe(true);
+  });
+
+  it('--dry-run 不写文件系统', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents', 'utf-8');
+    await fs.writeFile(
+      path.join(root, 'skillink.config.mjs'),
+      `export default {
+  agentsMarkdown: [{ from: 'AGENTS.md', to: ['CLAUDE.md'] }],
+};
+`,
+      'utf-8',
+    );
+
+    await syncCommand({ cwd: root, yes: true, dryRun: true });
+
+    expect(existsSync(path.join(root, 'CLAUDE.md'))).toBe(false);
+    expect(existsSync(path.join(root, '.gitignore'))).toBe(false);
   });
 });

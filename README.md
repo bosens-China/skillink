@@ -3,117 +3,122 @@
 [![npm version](https://img.shields.io/npm/v/@boses/skillink.svg)](https://www.npmjs.com/package/@boses/skillink)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
+**Skillink** 是一个专为 AI 工具配置设计的符号链接（Symlink）管理器。
 
-**Skillink** is a robust symlink manager designed specifically for AI tool configurations.
+AI 工具正逐步在 `AGENTS.md` 与 `.agents/` 等标准上达成共识，但仍有不少生态（例如 Claude Code）维持着各自的目录结构。Skillink 用智能软链接同步你的 Agent 定义与技能目录，让一份配置在多个工具之间复用。
 
-In the rapidly evolving AI landscape, tools are beginning to converge on standards like `AGENTS.md` and `.agents/`. However, many ecosystems (like Claude Code) still maintain their own fragmented directories. Skillink bridges this gap by synchronizing your agent definitions and skills across all your tools using smart symlinks.
+> **核心理念：** 一次编写，多端同步，完美兼容。
 
-> **Core Philosophy:** Write once, sync everywhere, stay compatible.
+## ✨ 核心特性
 
-## ✨ Key Features
+- **🚀 智能初始化**：自动检测仓库现状（优先 `.agents/AGENTS.md`，否则反向使用 `.claude/CLAUDE.md` 作为源），交互式生成配置与 `.gitignore`。
+- **🔗 统一同步**：支持 Glob 模式（如 `**/AGENTS.md`），自动解析为扁平化的链接列表。
+- **🛡️ 冲突防护**：多个源指向同一目标时直接报错，避免静默覆盖；目标已是真实文件时弹窗确认。
+- **🔐 安全加密**：基于 AES-256-GCM（带完整性校验）加密敏感配置文件，`lock` 后还会提示把明文加入 `.gitignore`。
+- **🖥️ 跨平台**：macOS / Linux / Windows 全面支持（Windows 使用 Junction，必要时降级为硬链接）。
+- **⚙️ CI 友好**：`--yes` 全量自动确认；`-p` 或 `SKILLINK_PASSWORD` 注入密码；非 TTY 缺密码会快速失败而不是挂死。
 
-- **🚀 Smart Initialization**: Interactive onboarding that detects your system language and sets up `.gitignore` automatically.
-- **🔗 Unified Syncing**: Resolve complex glob patterns (e.g., `**/AGENTS.md`) into flat symlink structures.
-- **🛡️ Secure Encryption**: Protect sensitive MCP configs or `.env` files using industry-standard **AES-256-GCM** with integrity checks.
-- **🖥️ Cross-Platform**: Optimized for macOS, Linux, and Windows (uses Junctions and provides elevation fallbacks).
-- **🌐 Bilingual Support**: Intelligent `auto` locale detection with clear, professional output in both English and Chinese.
-- **⚙️ Developer-First CLI**: Supports interactive prompts, CLI flags (`--yes`), and environment variables for CI/CD.
-
-## 🚀 Quick Start
+## 🚀 快速开始
 
 ```bash
 npx @boses/skillink
 ```
 
-On your first run, Skillink will:
-1.  **Ask** for your preferred language.
-2.  **Generate** a `skillink.config.ts` if it doesn't exist.
-3.  **Scan** for `AGENTS.md` and `.agents/` directories.
-4.  **Prompt** to add generated targets to your `.gitignore`.
-5.  **Create** the symlinks to bridge your AI tools.
+首次运行 Skillink 会：
 
-### Automation Mode (CI/CD)
+1. **检测** 仓库中现有的 `.agents` / `AGENTS.md` 或 `.claude` / `CLAUDE.md`
+2. **生成** `skillink.config.ts`（按检测结果选择正向或反向模板）
+3. **解析** 配置，展示即将创建的映射摘要
+4. **确认** 是否把生成目标写入 `.gitignore`
+5. **创建** 符号链接，桥接你的 AI 工具
+
+### 自动化模式（CI/CD）
 
 ```bash
 npx @boses/skillink --yes
 ```
 
-## 🛠 Configuration
+### 预览模式（不写盘）
 
-Edit `skillink.config.ts` to customize your linking logic:
+```bash
+npx @boses/skillink --dry-run
+```
+
+## 🛠 配置说明
+
+编辑 `skillink.config.ts` 自定义同步逻辑：
 
 ```typescript
 import { defineConfig } from '@boses/skillink';
 
 export default defineConfig({
-  locale: 'auto', // 'auto' | 'en' | 'zh-CN'
-  
-  // File rules: Sync documentation across tools
+  // 文件规则：同步文档类配置，遵守 .gitignore
   agentsMarkdown: [
     {
       from: '**/AGENTS.md',
       to: ['CLAUDE.md'],
     },
   ],
-  
-  // Directory rules: Sync skill directories
+
+  // 目录规则：目标与源目录同级
   agentsSkills: [
     {
       from: '.agents',
       to: ['.claude'],
     },
   ],
-  
-  // Sensitive files to be encrypted via 'lock' command
+
+  // 需要通过 lock 命令加密的敏感文件
   encrypt: ['.mcp.json', '.env'],
 });
 ```
 
-## ⌨️ CLI Usage
+## ⌨️ CLI 命令
 
-| Command | Description |
-| :--- | :--- |
-| `skillink [root]` | Sync files via symlinks (default command) |
-| `skillink lock [files...]` | Encrypt files to `.lock` format |
-| `skillink unlock [files...]` | Decrypt `.lock` files back to originals |
-| `-y, --yes` | Skip confirmation prompts (Strict Mode) |
-| `-p, --password <pwd>` | Provide password for lock/unlock (or use `SKILLINK_PASSWORD` env) |
-| `--version` | Show version |
+| 命令                          | 描述                                                    |
+| :---------------------------- | :------------------------------------------------------ |
+| `skillink [root]`             | 通过符号链接同步文件（默认命令）                        |
+| `skillink lock [...files]`    | 将文件加密为 `.lock`                                    |
+| `skillink unlock [...files]`  | 将 `.lock` 文件解密还原                                 |
+| `-y, --yes`                   | 跳过所有交互确认（严格模式，冲突直接报错）              |
+| `--dry-run`                   | 仅打印将要执行的链接，不写入文件系统                    |
+| `-p, --password <pwd>`        | 提供加解密密码（也可使用环境变量 `SKILLINK_PASSWORD`）  |
+| `--version`                   | 显示版本号                                              |
 
-### Sync Behavior & Safety
+### 同步行为与安全
 
-- **Conflict Handling**: If a target (e.g., `CLAUDE.md`) exists and is a **real file/directory** (not a link), Skillink will prompt you to `Overwrite` or `Skip`.
-- **Strict Mode (`--yes`)**: In automation mode, Skillink prioritizes safety. If a conflict is detected, it will **fail and exit** rather than silently overwriting your data.
-- **Root Boundary**: All resolved `from` / `to` paths must stay within the current project root. Any mapping that escapes the root via paths like `../` will be rejected.
-- **Idempotency**: Safe to run repeatedly; it only updates links that have changed.
+- **冲突防护**：多个 `from` 解析到同一个 `to` 时会立即报错（避免静默后写覆盖前面的链接）。
+- **真实文件冲突**：目标路径已存在且不是符号链接时，交互模式会询问「覆盖 / 跳过」，`--yes` 模式直接报错退出。
+- **根目录边界**：所有 `from` / `to` 必须落在项目根目录内，`../` 越界会被拒绝。
+- **幂等性**：可重复运行，仅重建已变化的链接。
 
-## 🔒 Security (Lock/Unlock)
+## 🔒 加固命令（Lock / Unlock）
 
-Use `lock` to encrypt sensitive files so they can be committed to version control safely.
+使用 `lock` 加密敏感文件，方便提交到版本控制；`unlock` 一键还原。
 
 ```bash
-# Encrypts files listed in config. Prompts for password if not provided via -p or env.
+# 加密配置中列出的文件（未提供密码时会交互式询问）
 skillink lock
 
-# Decrypts and restores originals
+# 解密 .lock 文件，还原原始内容
 skillink unlock
 ```
 
-- **Algorithm**: AES-256-GCM (Authenticated Encryption).
-- **Manifest**: Tracks encrypted files in `skillink.encrypt.json` for easy restoration.
-- **Privacy**: Original files and `.lock` files are kept locally; you decide what to commit.
+- **算法**：AES-256-GCM（带完整性认证标签）
+- **清单**：`skillink.encrypt.json` 记录被加密的明文路径，便于一键还原
+- **明文保护**：`lock` 执行后会主动提示把明文加入 `.gitignore`，避免误提交
+- **退出码**：`unlock` 全部/部分解密失败时退出码非 0，便于 CI 检测
 
-## 🤝 Contributing
+## 🤝 参与贡献
 
-Contributions are welcome! Whether it's reporting a bug, suggesting a feature, or submitting a pull request, we appreciate your help in making Skillink better.
+欢迎贡献代码！无论是报告 Bug、建议新功能还是提交 Pull Request，我们都非常感谢。
 
-1.  Fork the repository.
-2.  Create your feature branch (`git checkout -b feature/amazing-feature`).
-3.  Commit your changes (`git commit -m 'Add some amazing feature'`).
-4.  Push to the branch (`git push origin feature/amazing-feature`).
-5.  Open a Pull Request.
+1. Fork 本仓库
+2. 创建特性分支（`git checkout -b feature/amazing-feature`）
+3. 提交更改（`git commit -m 'feat: add amazing feature'`）
+4. 推送分支（`git push origin feature/amazing-feature`）
+5. 发起 Pull Request
 
-## 📜 License
+## 📜 开源协议
 
-Distributed under the **MIT License**. See `LICENSE` for more information.
+本项目采用 **MIT License**。详情请参阅 `LICENSE` 文件。

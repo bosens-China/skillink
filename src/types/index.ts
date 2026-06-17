@@ -1,5 +1,3 @@
-export type Locale = 'auto' | 'en' | 'zh-CN';
-
 export interface LinkMapping {
   /** 源路径（相对于项目根目录） */
   from: string;
@@ -7,10 +5,9 @@ export interface LinkMapping {
   to: string;
 }
 
-/** Linker 仅依赖扁平映射与语言设置 */
+/** Linker 仅依赖扁平映射 */
 export interface LinkerConfig {
   links: LinkMapping[];
-  locale?: Locale;
 }
 
 /** AGENTS.md 等文档：按 glob 匹配文件，目标相对于每个源文件所在目录 */
@@ -30,8 +27,6 @@ export interface AgentsSkillsRule {
 }
 
 export interface SkillinkConfig {
-  /** 语言设置：auto 自动检测，en 英文，zh-CN 中文 */
-  locale?: Locale;
   /** Agent 文档同步规则（可多组）；省略则不同步此类映射 */
   agentsMarkdown?: AgentsMarkdownRule[];
   /** Skills 目录同步规则（可多组）；省略则不同步此类映射 */

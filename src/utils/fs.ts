@@ -1,17 +1,5 @@
 import fs from 'node:fs/promises';
-import { existsSync, lstatSync } from 'node:fs';
-
-/**
- * 检查路径是否存在
- */
-export async function pathExists(p: string): Promise<boolean> {
-  try {
-    await fs.access(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { lstatSync } from 'node:fs';
 
 /**
  * 确保目录存在（如果不存在则递归创建）
@@ -25,8 +13,7 @@ export async function ensureDir(dir: string): Promise<void> {
  */
 export function isSymlink(p: string): boolean {
   try {
-    const stats = lstatSync(p);
-    return stats.isSymbolicLink();
+    return lstatSync(p).isSymbolicLink();
   } catch {
     return false;
   }
@@ -81,24 +68,4 @@ export async function createSymlink(
     }
     throw error;
   }
-}
-
-/**
- * 安全移除符号链接
- */
-export async function removeSymlink(linkPath: string): Promise<void> {
-  if (isSymlink(linkPath)) {
-    await fs.unlink(linkPath);
-  }
-}
-
-/**
- * 获取指定目录下的所有子目录名（潜在的技能）
- */
-export async function getSubdirectories(dir: string): Promise<string[]> {
-  if (!existsSync(dir)) return [];
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-  return entries
-    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-    .map((e) => e.name);
 }

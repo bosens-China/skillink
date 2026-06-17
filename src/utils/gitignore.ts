@@ -39,12 +39,18 @@ export function collectGitignoreEntries(targets: string[]): string[] {
   return result;
 }
 
+interface AddToGitignoreOptions {
+  /** dryRun 模式只计算哪些会被新增，不实际写文件 */
+  dryRun?: boolean;
+}
+
 /**
  * 将条目追加到 .gitignore（跳过已存在的条目）
  */
 export async function addToGitignore(
   root: string,
   entries: string[],
+  options: AddToGitignoreOptions = {},
 ): Promise<{ added: string[]; skipped: string[] }> {
   const gitignorePath = path.join(root, '.gitignore');
   const added: string[] = [];
@@ -55,14 +61,12 @@ export async function addToGitignore(
     existingContent = await fs.readFile(gitignorePath, 'utf-8');
   }
 
-  const existingLines = new Set(
-    existingContent
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith('#')),
-  );
+  const existingLines = existingContent
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
   const existingNormalized = new Set(
-    Array.from(existingLines).map((line) => normalizeGitignoreEntry(line)),
+    existingLines.map((line) => normalizeGitignoreEntry(line)),
   );
 
   const linesToAdd: string[] = [];
@@ -81,7 +85,7 @@ export async function addToGitignore(
     }
   }
 
-  if (linesToAdd.length > 0) {
+  if (linesToAdd.length > 0 && !options.dryRun) {
     const prefix =
       existingContent.endsWith('\n') || existingContent === '' ? '' : '\n';
     const block = prefix + linesToAdd.join('\n') + '\n';

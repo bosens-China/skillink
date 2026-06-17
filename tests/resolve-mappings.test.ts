@@ -92,6 +92,21 @@ describe('resolveLinkMappings', () => {
     });
   });
 
+  it('多个不同的 from 指向同一个 to 时抛出冲突错误', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'A.md'), 'a');
+    await fs.writeFile(path.join(root, 'B.md'), 'b');
+
+    await expect(
+      resolveLinkMappings(root, {
+        links: [
+          { from: 'A.md', to: 'OUT.md' },
+          { from: 'B.md', to: 'OUT.md' },
+        ],
+      }),
+    ).rejects.toThrow('Multiple sources mapped to the same target');
+  });
+
   it('未匹配任何源时产生 warnings', async () => {
     const root = await createTempDir();
 

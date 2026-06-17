@@ -41,7 +41,8 @@ describe('Linker.sync', () => {
     };
 
     const linker = new Linker(root, config);
-    await linker.sync();
+    const result = await linker.sync();
+    expect(result.created).toBe(1);
 
     const claudeMd = path.join(root, 'CLAUDE.md');
     expect(await exists(claudeMd)).toBe(true);
@@ -67,12 +68,10 @@ describe('Linker.sync', () => {
     const claudeLink = path.join(root, '.claude');
     expect(await exists(claudeLink)).toBe(true);
 
-    // 验证 .claude 是一个符号链接，指向 .agents
     const linkTarget = await fs.readlink(claudeLink);
     const absTarget = path.resolve(path.dirname(claudeLink), linkTarget);
     expect(absTarget).toBe(path.resolve(agentsDir));
 
-    // 通过符号链接可以访问源目录内的文件
     const content = await fs.readFile(
       path.join(claudeLink, 'file1.md'),
       'utf-8',
@@ -80,7 +79,7 @@ describe('Linker.sync', () => {
     expect(content).toBe('# File 1');
   });
 
-  it('幂等性：重复执行不报错', async () => {
+  it('幂等性：重复执行返回 reused', async () => {
     const root = await createTempDir();
     await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
 
@@ -89,8 +88,12 @@ describe('Linker.sync', () => {
     };
 
     const linker = new Linker(root, config);
-    await linker.sync();
-    await linker.sync(); // 第二次执行不应报错
+    const first = await linker.sync();
+    expect(first.created).toBe(1);
+
+    const second = await linker.sync();
+    expect(second.created).toBe(0);
+    expect(second.reused).toBe(1);
 
     expect(await exists(path.join(root, 'CLAUDE.md'))).toBe(true);
   });
@@ -103,7 +106,9 @@ describe('Linker.sync', () => {
     };
 
     const linker = new Linker(root, config);
-    await linker.sync(); // 不应抛出错误
+    const result = await linker.sync();
+    expect(result.skipped).toBe(1);
+    expect(result.created).toBe(0);
 
     expect(await exists(path.join(root, 'output.txt'))).toBe(false);
   });
@@ -120,7 +125,8 @@ describe('Linker.sync', () => {
     };
 
     const linker = new Linker(root, config);
-    await linker.sync();
+    const result = await linker.sync();
+    expect(result.created).toBe(2);
 
     expect(await exists(path.join(root, 'CLAUDE.md'))).toBe(true);
     expect(await exists(path.join(root, 'nested', 'rules', 'AGENTS.md'))).toBe(
@@ -135,41 +141,28 @@ describe('Linker.sync', () => {
 
     const config: LinkerConfig = {
       links: [{ from: '.agents', to: '.claude' }],
-      locale: 'en',
     };
 
-    const linker = new Linker(root, config, {
-      autoConfirm: true,
-      locale: 'en',
-      configLocale: 'en',
-    });
+    const linker = new Linker(root, config, { autoConfirm: true });
 
     await expect(linker.sync()).rejects.toThrow(
-      'Target directory exists and is not a symlink; in --yes mode it will not be deleted automatically',
+      '目标目录已存在且不是符号链接，--yes 模式下不会自动删除',
     );
   });
 
-  it('类型不匹配时根据 auto 输出双语报错', async () => {
+  it('--yes 模式下目标文件类型不匹配时报中文错', async () => {
     const root = await createTempDir();
     await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents');
     await fs.mkdir(path.join(root, 'CLAUDE.md'), { recursive: true });
 
     const config: LinkerConfig = {
       links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
-      locale: 'auto',
     };
 
-    const linker = new Linker(root, config, {
-      autoConfirm: true,
-      locale: 'zh-CN',
-      configLocale: 'auto',
-    });
+    const linker = new Linker(root, config, { autoConfirm: true });
 
     await expect(linker.sync()).rejects.toThrow(
       '目标目录已存在且不是符号链接，--yes 模式下不会自动删除',
-    );
-    await expect(linker.sync()).rejects.toThrow(
-      'Target directory exists and is not a symlink; in --yes mode it will not be deleted automatically',
     );
   });
 
@@ -181,13 +174,9 @@ describe('Linker.sync', () => {
 
     const config: LinkerConfig = {
       links: [{ from: 'AGENTS.md', to: 'CLAUDE.md' }],
-      locale: 'en',
     };
 
-    const linker = new Linker(root, config, {
-      locale: 'en',
-      configLocale: 'en',
-    });
+    const linker = new Linker(root, config);
     await linker.sync();
 
     const tmpPath = path.join(root, 'AGENTS.tmp.md');

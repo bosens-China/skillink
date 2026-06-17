@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { select, confirm } from '@inquirer/prompts';
+import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import {
   loadConfig,
@@ -8,201 +8,158 @@ import {
 } from '@/core/config.js';
 import { Linker } from '@/core/linker.js';
 import { resolveLinkMappings } from '@/core/resolve-mappings.js';
-import { resolveLocale, t } from '@/utils/locale.js';
 import { addToGitignore, collectGitignoreEntries } from '@/utils/gitignore.js';
-import type { Locale } from '@/types/index.js';
+import type { LinkMapping } from '@/types/index.js';
+
+interface SyncOptions {
+  cwd?: string;
+  yes?: boolean;
+  dryRun?: boolean;
+}
 
 /**
- * 主命令：init + sync 一体化流程
+ * 默认命令：init + sync 一体化流程
  */
-export async function syncCommand(options: { cwd?: string; yes?: boolean }) {
+export async function syncCommand(options: SyncOptions) {
   const cwd = options.cwd || process.cwd();
   const autoConfirm = options.yes || false;
-  const hadConfigFile = hasConfigFile(cwd);
+  const dryRun = options.dryRun || false;
+
+  p.intro(pc.bgCyan(pc.black(' skillink ')));
 
   // 1. 检查/创建配置文件
-  if (!hadConfigFile) {
-    const defaultLocale = resolveLocale(); // 基于系统语言确定默认值
+  if (!hasConfigFile(cwd)) {
+    const { configPath, detection } = await createDefaultConfig(cwd);
 
-    // 提示用户选择语言（--yes 模式下直接使用 auto）
-    const selectedLocale = autoConfirm
-      ? 'auto'
-      : ((await select({
-          message: t(
-            '请选择语言偏好 / Please select language preference',
-            'Please select language preference / 请选择语言偏好',
-            defaultLocale,
-          ),
-          choices: [
-            { name: 'Auto (Detect System)', value: 'auto' },
-            { name: 'English Only', value: 'en' },
-            { name: '简体中文 (仅中文)', value: 'zh-CN' },
-          ],
-          default: 'auto',
-        })) as Locale);
+    const detected = detection.hasAgents
+      ? '.agents / AGENTS.md'
+      : detection.hasClaude
+        ? '.claude / CLAUDE.md'
+        : '未发现已有目录';
 
-    const configPath = await createDefaultConfig(cwd, selectedLocale);
-    const locale = resolveLocale(selectedLocale);
-    console.log(
-      pc.cyan(
-        t(
-          '首次使用，已创建默认配置文件：',
-          'First time use, created default config file: ',
-          locale,
-          selectedLocale,
-        ) + pc.green(path.relative(cwd, configPath)),
-      ),
+    const directionLabel =
+      detection.direction === 'agents-to-claude'
+        ? '.agents/AGENTS.md → .claude/CLAUDE.md'
+        : '.claude/CLAUDE.md → .agents/AGENTS.md';
+
+    p.note(
+      [
+        `仓库检测：${pc.cyan(detected)}`,
+        `生成模板：${pc.cyan(directionLabel)}`,
+        `配置文件：${pc.green(path.relative(cwd, configPath) || 'skillink.config.ts')}`,
+      ].join('\n'),
+      '首次运行已生成默认配置',
     );
   }
 
-  // 2. 加载配置（此时如果是刚创建的，selectedLocale 已经生效）
+  // 2. 加载配置 + 解析映射
   const config = await loadConfig(cwd);
-  const locale = resolveLocale(config.locale);
-
-  // 3. 解析 glob + 字面量映射
-  const { mappings: validMappings, warnings } = await resolveLinkMappings(
-    cwd,
-    config,
+  const resolveSpinner = p.spinner();
+  resolveSpinner.start('解析映射规则');
+  const { mappings, warnings } = await resolveLinkMappings(cwd, config);
+  resolveSpinner.stop(
+    `解析完成：${pc.bold(String(mappings.length))} 条映射`,
   );
 
   for (const w of warnings) {
-    console.warn(
-      pc.yellow(
-        t(
-          `未匹配任何路径，跳过规则: ${w}`,
-          `No paths matched, skipping rule: ${w}`,
-          locale,
-          config.locale,
-        ),
-      ),
-    );
+    p.log.warn(`未匹配任何路径，跳过规则：${pc.dim(w)}`);
   }
 
-  // 仅首次初始化时处理 .gitignore，避免后续重复打扰或写入多余子路径。
-  const gitignoreEntries = hadConfigFile
-    ? []
-    : collectGitignoreEntries(validMappings.map((mapping) => mapping.to));
-
-  if (validMappings.length === 0) {
-    console.log(
-      pc.yellow(
-        t(
-          !hadConfigFile
-            ? '当前配置没有解析出任何同步目标。你可以编辑 skillink.config.ts 后重试。'
-            : '没有可同步的映射',
-          !hadConfigFile
-            ? 'No sync targets resolved. You can edit skillink.config.ts and retry.'
-            : 'No mappings to sync',
-          locale,
-          config.locale,
-        ),
-      ),
-    );
+  if (mappings.length === 0) {
+    p.outro(pc.yellow('没有可同步的映射，编辑 skillink.config.ts 后重试'));
     return;
   }
 
-  // 4. .gitignore 处理
-  if (gitignoreEntries.length > 0) {
-    if (autoConfirm) {
-      const { added, skipped } = await addToGitignore(cwd, gitignoreEntries);
-      if (added.length > 0) {
-        console.log(
-          pc.green(
-            t(
-              '已添加到 .gitignore',
-              'Added to .gitignore',
-              locale,
-              config.locale,
-            ) + `: ${added.join(', ')}`,
-          ),
-        );
-      }
-      if (skipped.length > 0) {
-        console.log(
-          pc.gray(
-            t(
-              '.gitignore 中已存在',
-              'Already in .gitignore',
-              locale,
-              config.locale,
-            ) + `: ${skipped.join(', ')}`,
-          ),
-        );
-      }
-    } else {
-      const answer = await confirm({
-        message: t(
-          `检测到将要生成 ${gitignoreEntries.join(', ')}，这些通常不建议提交。要不要帮你加入 .gitignore？`,
-          `Detected generated targets ${gitignoreEntries.join(', ')} which are usually not recommended for commit. Add them to .gitignore?`,
-          locale,
-          config.locale,
-        ),
-        default: true,
-      });
+  // 3. 显示摘要
+  p.note(formatMappingsTable(cwd, mappings), '将同步的映射');
 
-      if (answer) {
-        const { added } = await addToGitignore(cwd, gitignoreEntries);
-        if (added.length > 0) {
-          console.log(
-            pc.green(
-              t(
-                '已添加到 .gitignore',
-                'Added to .gitignore',
-                locale,
-                config.locale,
-              ) + `: ${added.join(', ')}`,
-            ),
+  if (dryRun) {
+    p.outro(pc.cyan('dry-run：未写入文件系统'));
+    return;
+  }
+
+  // 4. .gitignore：每次都计算"还没在 gitignore 里的新目标名"
+  const candidates = collectGitignoreEntries(mappings.map((m) => m.to));
+  if (candidates.length > 0) {
+    const { added: dryAdded } = await addToGitignore(cwd, candidates, {
+      dryRun: true,
+    });
+    if (dryAdded.length > 0) {
+      const accept = autoConfirm
+        ? true
+        : await confirmOrCancel(
+            `把 ${pc.cyan(dryAdded.join(', '))} 加入 .gitignore？`,
+            true,
           );
+      if (accept) {
+        const { added } = await addToGitignore(cwd, dryAdded);
+        if (added.length > 0) {
+          p.log.success(`已写入 .gitignore：${pc.cyan(added.join(', '))}`);
         }
+      } else {
+        p.log.info('跳过 .gitignore 更新');
       }
     }
   }
 
-  if (!hadConfigFile) {
-    console.log(
-      pc.cyan(
-        t(
-          '已完成初始化。后续你可以修改配置来调整同步规则，后续运行将不再重复处理 .gitignore。',
-          'Initialization complete. You can modify the config to adjust sync rules; future runs will not prompt for .gitignore again.',
-          locale,
-          config.locale,
-        ),
-      ),
-    );
-  }
-
   // 5. 执行符号链接同步
-  const linker = new Linker(
-    cwd,
-    { links: validMappings, locale: config.locale },
-    { autoConfirm, locale, configLocale: config.locale },
-  );
-  let syncedCount: number;
+  const syncSpinner = p.spinner();
+  syncSpinner.start('创建符号链接');
+
+  const linker = new Linker(cwd, { links: mappings }, { autoConfirm });
+  let result;
   try {
-    syncedCount = await linker.sync();
+    result = await linker.sync();
   } catch (error: unknown) {
+    syncSpinner.stop(pc.red('同步失败'));
     const err = error as NodeJS.ErrnoException;
     if (process.platform === 'win32' && err.code === 'EPERM') {
       throw new Error(
-        t(
-          '创建链接失败（Windows 权限限制）。请开启开发者模式，或以管理员权限运行终端后重试。',
-          'Failed to create link due to Windows permission restrictions. Enable Developer Mode, or run terminal as Administrator and retry.',
-          locale,
-          config.locale,
-        ),
+        '创建链接失败（Windows 权限限制）。请开启开发者模式，或以管理员权限运行终端后重试。',
         { cause: error },
       );
     }
     throw error;
   }
-  console.log(
-    pc.green(
-      t(
-        `同步完成，共处理 ${syncedCount} 条映射`,
-        `Sync completed, processed ${syncedCount} mapping(s)`,
-        locale,
-        config.locale,
-      ),
-    ),
+
+  syncSpinner.stop(
+    `同步完成：新建 ${pc.green(result.created)} · 已存在 ${pc.dim(result.reused)} · 跳过 ${pc.yellow(result.skipped)}`,
   );
+
+  p.outro(pc.green('全部处理完毕 ✓'));
+}
+
+/**
+ * 简易表格：左侧 from → 右侧 to，按当前控制台宽度做对齐
+ */
+function formatMappingsTable(cwd: string, mappings: LinkMapping[]): string {
+  const rows = mappings.map((m) => ({
+    from: path.relative(cwd, path.resolve(cwd, m.from)) || m.from,
+    to: path.relative(cwd, path.resolve(cwd, m.to)) || m.to,
+  }));
+  const fromWidth = Math.min(
+    Math.max(...rows.map((r) => r.from.length), 4),
+    40,
+  );
+  return rows
+    .map(
+      (r) =>
+        `${pc.cyan(r.from.padEnd(fromWidth))}  ${pc.dim('→')}  ${pc.green(r.to)}`,
+    )
+    .join('\n');
+}
+
+/**
+ * 包一层 confirm，处理 Ctrl+C 取消
+ */
+async function confirmOrCancel(
+  message: string,
+  initial = true,
+): Promise<boolean> {
+  const ans = await p.confirm({ message, initialValue: initial });
+  if (p.isCancel(ans)) {
+    p.cancel('已取消');
+    process.exit(0);
+  }
+  return ans;
 }

@@ -34,7 +34,8 @@ describe('Boundary Scenarios', () => {
 
       const linker = new Linker(root, { links: mappings });
       const synced = await linker.sync();
-      expect(synced).toBe(0);
+      expect(synced.created).toBe(0);
+      expect(synced.skipped).toBe(0);
     });
 
     it('should handle rules with empty to arrays', async () => {

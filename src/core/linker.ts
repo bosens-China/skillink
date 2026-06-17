@@ -1,16 +1,19 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { select } from '@inquirer/prompts';
+import * as p from '@clack/prompts';
+import pc from 'picocolors';
 import type { LinkerConfig, LinkMapping } from '../types/index.js';
 import { ensureDir, isSymlink, createSymlink } from '../utils/fs.js';
-import type { Locale } from '../types/index.js';
-import { t } from '../utils/locale.js';
 
 interface LinkerOptions {
   autoConfirm?: boolean;
-  locale?: 'en' | 'zh-CN';
-  configLocale?: Locale;
+}
+
+export interface LinkerResult {
+  created: number;
+  reused: number;
+  skipped: number;
 }
 
 /**
@@ -28,36 +31,29 @@ export class Linker {
   }
 
   /**
-   * 同步所有映射
+   * 同步所有映射，返回每类结果计数
    */
-  async sync(): Promise<number> {
-    let syncedCount = 0;
+  async sync(): Promise<LinkerResult> {
+    const result: LinkerResult = { created: 0, reused: 0, skipped: 0 };
     for (const mapping of this.config.links) {
-      const synced = await this.syncMapping(mapping);
-      if (synced) {
-        syncedCount += 1;
-      }
+      const outcome = await this.syncMapping(mapping);
+      result[outcome] += 1;
     }
-    return syncedCount;
+    return result;
   }
 
   /**
    * 同步单个映射
    */
-  private async syncMapping(mapping: LinkMapping): Promise<boolean> {
+  private async syncMapping(
+    mapping: LinkMapping,
+  ): Promise<'created' | 'reused' | 'skipped'> {
     const fromPath = path.resolve(this.root, mapping.from);
     const toPath = path.resolve(this.root, mapping.to);
 
     if (!existsSync(fromPath)) {
-      console.warn(
-        t(
-          `源路径不存在，跳过: ${mapping.from}`,
-          `Source path not found, skipping: ${mapping.from}`,
-          this.options.locale ?? 'en',
-          this.options.configLocale,
-        ),
-      );
-      return false;
+      p.log.warn(`源路径不存在，跳过: ${pc.dim(mapping.from)}`);
+      return 'skipped';
     }
 
     return this.syncLink(fromPath, toPath);
@@ -66,10 +62,13 @@ export class Linker {
   /**
    * 创建或修复符号链接（文件和目录通用）
    */
-  private async syncLink(fromPath: string, toPath: string): Promise<boolean> {
+  private async syncLink(
+    fromPath: string,
+    toPath: string,
+  ): Promise<'created' | 'reused' | 'skipped'> {
     // 源和目标相同路径时视为已同步，避免误删源文件
-    if (path.resolve(fromPath) === path.resolve(toPath)) {
-      return true;
+    if (fromPath === toPath) {
+      return 'reused';
     }
 
     const fromStats = await fs.lstat(fromPath);
@@ -80,16 +79,16 @@ export class Linker {
       if (isSymlink(toPath)) {
         const currentTarget = await fs.readlink(toPath);
         const absCurrent = path.resolve(path.dirname(toPath), currentTarget);
-        if (absCurrent === path.resolve(fromPath)) {
-          return true; // 已正确链接
+        if (absCurrent === fromPath) {
+          return 'reused'; // 已正确链接
         }
+        // 链接指向了别的源：当作失效链接重建（属于「修复」语义）
+        // 该场景下，resolveLinkMappings 已经做了「多个 from 指向同一 to」的冲突拦截，
+        // 所以这里出现的差异通常是上一轮运行的产物，安全替换即可。
       } else {
         const toStats = await fs.lstat(toPath);
         const isToDir = toStats.isDirectory();
-
-        // 双语类型标签
-        const toTypeZh = isToDir ? '目录' : '文件';
-        const toTypeEn = isToDir ? 'directory' : 'file';
+        const toType = isToDir ? '目录' : '文件';
 
         // 文件类型相同时检查是否为同一物理文件（Hardlink 等情况）
         if (
@@ -98,52 +97,27 @@ export class Linker {
           fromStats.dev === toStats.dev &&
           fromStats.ino === toStats.ino
         ) {
-          return true;
+          return 'reused';
         }
 
         // 目标已存在且不是符号链接时，交互模式可选择覆盖；--yes 模式直接失败终止
         if (this.options.autoConfirm) {
           throw new Error(
-            t(
-              `目标${toTypeZh}已存在且不是符号链接，--yes 模式下不会自动删除：${toPath}`,
-              `Target ${toTypeEn} exists and is not a symlink; in --yes mode it will not be deleted automatically: ${toPath}`,
-              this.options.locale ?? 'en',
-              this.options.configLocale,
-            ),
+            `目标${toType}已存在且不是符号链接，--yes 模式下不会自动删除：${path.relative(this.root, toPath)}`,
           );
         }
 
-        const action = await select({
-          message: t(
-            `目标${toTypeZh}已存在且不是符号链接，是否删除并覆盖？${path.relative(this.root, toPath)}`,
-            `Target ${toTypeEn} exists and is not a symlink. Delete and overwrite? ${path.relative(this.root, toPath)}`,
-            this.options.locale ?? 'en',
-            this.options.configLocale,
-          ),
-          choices: [
-            {
-              name: t(
-                '删除并覆盖',
-                'Delete and overwrite',
-                this.options.locale ?? 'en',
-                this.options.configLocale,
-              ),
-              value: 'overwrite',
-            },
-            {
-              name: t(
-                '跳过该映射',
-                'Skip this mapping',
-                this.options.locale ?? 'en',
-                this.options.configLocale,
-              ),
-              value: 'skip',
-            },
+        const action = await p.select({
+          message: `目标${toType}已存在且不是符号链接，是否删除并覆盖？${pc.dim(path.relative(this.root, toPath))}`,
+          options: [
+            { value: 'overwrite', label: '删除并覆盖' },
+            { value: 'skip', label: '跳过该映射' },
           ],
+          initialValue: 'skip',
         });
 
-        if (action === 'skip') {
-          return false;
+        if (p.isCancel(action) || action === 'skip') {
+          return 'skipped';
         }
 
         await fs.rm(toPath, { recursive: true, force: true });
@@ -151,14 +125,6 @@ export class Linker {
     }
 
     await createSymlink(fromPath, toPath);
-    console.log(
-      t(
-        `已创建链接: ${path.relative(this.root, fromPath)} -> ${path.relative(this.root, toPath)}`,
-        `Linked: ${path.relative(this.root, fromPath)} -> ${path.relative(this.root, toPath)}`,
-        this.options.locale ?? 'en',
-        this.options.configLocale,
-      ),
-    );
-    return true;
+    return 'created';
   }
 }

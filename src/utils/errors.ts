@@ -1,10 +1,8 @@
-import type { Locale } from '@/types/index.js';
-import { t } from './locale.js';
-
 export type EncryptedPartLabel = 'salt' | 'iv' | 'auth tag' | 'ciphertext';
 
 export type SkillinkErrorCode =
   | 'PATH_OUTSIDE_ROOT'
+  | 'MAPPING_CONFLICT'
   | 'LEGACY_ENCRYPTED_FORMAT'
   | 'INVALID_ENCRYPTED_FORMAT'
   | 'INVALID_HEX_PART'
@@ -16,7 +14,7 @@ interface SkillinkErrorOptions {
 }
 
 /**
- * 统一的业务错误类型，便于在 CLI 层做国际化输出。
+ * 统一的业务错误类型，便于在 CLI 层做格式化输出。
  */
 export class SkillinkError extends Error {
   readonly code: SkillinkErrorCode;
@@ -34,85 +32,45 @@ export class SkillinkError extends Error {
   }
 }
 
-function translatePartLabel(
-  label: string | undefined,
-  locale: 'en' | 'zh-CN',
-  configLocale?: Locale,
-): string {
+function translatePartLabel(label: string | undefined): string {
   switch (label) {
     case 'salt':
-      return t('盐值', 'salt', locale, configLocale);
+      return '盐值';
     case 'iv':
-      return t('初始向量', 'IV', locale, configLocale);
+      return '初始向量';
     case 'auth tag':
-      return t('认证标签', 'auth tag', locale, configLocale);
+      return '认证标签';
     case 'ciphertext':
-      return t('密文', 'ciphertext', locale, configLocale);
+      return '密文';
     default:
-      return label ?? t('字段', 'field', locale, configLocale);
+      return label ?? '字段';
   }
 }
 
 /**
- * 将内部错误转换为终端可见的国际化文案。
+ * 将内部错误转换为终端可见的中文文案。
  */
-export function formatErrorMessage(
-  error: unknown,
-  locale: 'en' | 'zh-CN',
-  configLocale?: Locale,
-): string {
+export function formatErrorMessage(error: unknown): string {
   if (error instanceof SkillinkError) {
     switch (error.code) {
       case 'PATH_OUTSIDE_ROOT': {
         const field = error.meta.field ?? 'path';
         const value = error.meta.value ?? '';
-        return t(
-          `映射路径不能超出项目根目录：${field} = ${value}`,
-          `Mapping path cannot escape project root: ${field} = ${value}`,
-          locale,
-          configLocale,
-        );
+        return `映射路径不能超出项目根目录：${field} = ${value}`;
+      }
+      case 'MAPPING_CONFLICT': {
+        const to = error.meta.to ?? '';
+        const froms = error.meta.froms ?? '';
+        return `多个源指向同一个目标，存在冲突：${to} ← [${froms}]`;
       }
       case 'LEGACY_ENCRYPTED_FORMAT':
-        return t(
-          '旧版加密格式缺少完整性校验，请使用 skillink lock 重新加密该文件。',
-          'Legacy encrypted format is not authenticated. Please re-encrypt the file with skillink lock.',
-          locale,
-          configLocale,
-        );
+        return '旧版加密格式缺少完整性校验，请使用 skillink lock 重新加密该文件。';
       case 'INVALID_ENCRYPTED_FORMAT':
-        return t(
-          '加密内容格式无效',
-          'Invalid encrypted format',
-          locale,
-          configLocale,
-        );
-      case 'INVALID_HEX_PART': {
-        const label = translatePartLabel(
-          error.meta.label,
-          locale,
-          configLocale,
-        );
-        return t(
-          `${label} 不是有效的十六进制内容`,
-          `Invalid ${label} hex content`,
-          locale,
-          configLocale,
-        );
-      }
-      case 'INVALID_SEGMENT_LENGTH': {
-        const label = translatePartLabel(
-          error.meta.label,
-          locale,
-          configLocale,
-        );
-        return t(
-          `${label} 长度无效`,
-          `Invalid ${label} length`,
-          locale,
-          configLocale,
-        );
-      }
+        return '加密内容格式无效';
+      case 'INVALID_HEX_PART':
+        return `${translatePartLabel(error.meta.label)} 不是有效的十六进制内容`;
+      case 'INVALID_SEGMENT_LENGTH':
+        return `${translatePartLabel(error.meta.label)} 长度无效`;
       default:
         return error.message;
     }
