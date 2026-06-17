@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.0](https://github.com/bosens-China/skillink/compare/v3.1.0...v4.0.0) (2026-06-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* 移除多语言、用 clack 重写交互并修复冲突静默覆盖
+
+### Features
+
+* 移除多语言、用 clack 重写交互并修复冲突静默覆盖 ([94d90e7](https://github.com/bosens-China/skillink/commit/94d90e73ca530d5f5dec23318ab9f590107997c4))
+
 ## [3.1.0](https://github.com/bosens-China/skillink/compare/v3.0.0...v3.1.0) (2026-04-13)
 
 
