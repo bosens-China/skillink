@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.1.0](https://github.com/bosens-China/skillink/compare/v4.0.0...v4.1.0) (2026-06-22)
+
+
+### Features
+
+* 新增 --silent 与 --mode，完善 sync 接线 ([45ee552](https://github.com/bosens-China/skillink/commit/45ee55262fa8f63f199dbc0eba35be9f61eec5dc))
+* 新增 copy 同步模式 ([34bea80](https://github.com/bosens-China/skillink/commit/34bea804618881cb61e5b9d49db6a8b436f8b109))
+
 ## [4.0.0](https://github.com/bosens-China/skillink/compare/v3.1.0...v4.0.0) (2026-06-17)
 
 
