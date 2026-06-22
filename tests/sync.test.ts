@@ -108,9 +108,58 @@ describe('syncCommand', () => {
     expect(generated).toContain("from: '**/CLAUDE.md'");
     expect(generated).toContain("to: ['AGENTS.md']");
     expect(generated).toContain("from: '.claude'");
+    // 以 .claude 为源时默认 copy（断言注入到配置体的那行标记，避免和头部注释里的示例混淆）
+    expect(generated).toContain('可被 git 提交（改为');
 
     expect(existsSync(path.join(root, 'AGENTS.md'))).toBe(true);
     expect(existsSync(path.join(root, '.agents'))).toBe(true);
+    // copy 模式：生成的是真实文件而非软链接
+    expect((await fs.lstat(path.join(root, 'AGENTS.md'))).isSymbolicLink()).toBe(
+      false,
+    );
+  });
+
+  it('init --mode copy：正向检测也写入 copy', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents', 'utf-8');
+
+    await syncCommand({ cwd: root, yes: true, mode: 'copy' });
+
+    const generated = await fs.readFile(
+      path.join(root, 'skillink.config.ts'),
+      'utf-8',
+    );
+    expect(generated).toContain('可被 git 提交（改为');
+    expect((await fs.lstat(path.join(root, 'CLAUDE.md'))).isSymbolicLink()).toBe(
+      false,
+    );
+  });
+
+  it('init --mode symlink：覆盖 .claude 默认的 copy', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'CLAUDE.md'), '# Claude', 'utf-8');
+    await fs.mkdir(path.join(root, '.claude'), { recursive: true });
+
+    await syncCommand({ cwd: root, yes: true, mode: 'symlink' });
+
+    const generated = await fs.readFile(
+      path.join(root, 'skillink.config.ts'),
+      'utf-8',
+    );
+    // 配置体未被注入 copy（头部注释里的示例不算）
+    expect(generated).not.toContain('可被 git 提交（改为');
+    expect((await fs.lstat(path.join(root, 'AGENTS.md'))).isSymbolicLink()).toBe(
+      true,
+    );
+  });
+
+  it('非法 --mode 直接报错', async () => {
+    const root = await createTempDir();
+    await fs.writeFile(path.join(root, 'AGENTS.md'), '# Agents', 'utf-8');
+
+    await expect(
+      syncCommand({ cwd: root, yes: true, mode: 'hardlink' }),
+    ).rejects.toThrow('--mode 仅支持 symlink 或 copy');
   });
 
   it('--dry-run 不写文件系统', async () => {

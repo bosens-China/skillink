@@ -94,3 +94,46 @@ export async function addToGitignore(
 
   return { added, skipped };
 }
+
+/**
+ * 从 .gitignore 删除指定条目（按规范化后的整行匹配）。
+ * 用于 copy 模式目标：它们的初衷是被提交，不应继续被忽略。
+ * dryRun 时只计算将被删除的条目，不写文件。
+ */
+export async function removeFromGitignore(
+  root: string,
+  entries: string[],
+  options: AddToGitignoreOptions = {},
+): Promise<{ removed: string[] }> {
+  const gitignorePath = path.join(root, '.gitignore');
+  if (!existsSync(gitignorePath)) {
+    return { removed: [] };
+  }
+
+  const targets = new Set(
+    entries.map((entry) => normalizeGitignoreEntry(entry)).filter(Boolean),
+  );
+  if (targets.size === 0) {
+    return { removed: [] };
+  }
+
+  const content = await fs.readFile(gitignorePath, 'utf-8');
+  const removed: string[] = [];
+  const keptLines: string[] = [];
+
+  for (const line of content.split('\n')) {
+    // 注释、空行原样保留；仅删除与目标完全匹配（规范化后）的规则行
+    const isRule = line.trim() && !line.trim().startsWith('#');
+    if (isRule && targets.has(normalizeGitignoreEntry(line))) {
+      removed.push(normalizeGitignoreEntry(line));
+      continue;
+    }
+    keptLines.push(line);
+  }
+
+  if (removed.length > 0 && !options.dryRun) {
+    await fs.writeFile(gitignorePath, keptLines.join('\n'), 'utf-8');
+  }
+
+  return { removed };
+}

@@ -26,11 +26,19 @@ cli
   );
 
 cli
-  .command('[root]', '通过符号链接同步文件（默认命令）')
+  .command('[root]', '同步文件（默认命令；支持 symlink / copy 两种方式）')
   .option('-y, --yes', '跳过所有交互确认')
-  .option('--dry-run', '只打印将要执行的链接，不写入文件系统')
+  .option('--dry-run', '只打印将要执行的同步，不写入文件系统')
+  .option('--silent', 'postinstall 友好模式：无配置静默退出、不交互、冲突跳过')
+  .option('--mode <mode>', '首次生成配置时的同步方式：symlink 或 copy（仅 init 生效）')
   .action((root, options) =>
-    syncCommand({ cwd: root, yes: options.yes, dryRun: options.dryRun }),
+    syncCommand({
+      cwd: root,
+      yes: options.yes,
+      dryRun: options.dryRun,
+      silent: options.silent,
+      mode: options.mode,
+    }),
   );
 
 cli.help();
