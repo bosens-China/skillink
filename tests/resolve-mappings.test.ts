@@ -72,7 +72,9 @@ describe('resolveLinkMappings', () => {
     };
 
     const { mappings } = await resolveLinkMappings(root, config);
-    expect(mappings).toEqual([{ from: '.agents', to: '.claude' }]);
+    expect(mappings).toEqual([
+      { from: '.agents', to: '.claude', mode: 'symlink' },
+    ]);
   });
 
   it('links：字面量补充映射', async () => {
@@ -89,6 +91,7 @@ describe('resolveLinkMappings', () => {
     expect(mappings).toContainEqual({
       from: 'extra.txt',
       to: 'extra.link.txt',
+      mode: 'symlink',
     });
   });
 

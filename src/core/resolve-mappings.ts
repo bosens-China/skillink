@@ -6,6 +6,7 @@ import type {
   AgentsMarkdownRule,
   AgentsSkillsRule,
   LinkMapping,
+  LinkMode,
   SkillinkConfig,
 } from '@/types/index.js';
 import { SkillinkError } from '@/utils/errors.js';
@@ -54,6 +55,7 @@ function toRelPosix(root: string, absolutePath: string): string {
 async function expandAgentsMarkdown(
   root: string,
   rule: AgentsMarkdownRule,
+  mode: LinkMode,
 ): Promise<LinkMapping[]> {
   if (rule.to.length === 0) {
     return [];
@@ -79,6 +81,7 @@ async function expandAgentsMarkdown(
       out.push({
         from: relPosix,
         to: toRelPosix(root, absTo),
+        mode,
       });
     }
     return out;
@@ -102,6 +105,7 @@ async function expandAgentsMarkdown(
       out.push({
         from: relPosix,
         to: toRelPosix(root, absTo),
+        mode,
       });
     }
   }
@@ -114,6 +118,7 @@ async function expandAgentsMarkdown(
 async function expandAgentsSkills(
   root: string,
   rule: AgentsSkillsRule,
+  mode: LinkMode,
 ): Promise<LinkMapping[]> {
   if (rule.to.length === 0) {
     return [];
@@ -139,6 +144,7 @@ async function expandAgentsSkills(
       out.push({
         from: relPosix,
         to: toRelPosix(root, absTo),
+        mode,
       });
     }
     return out;
@@ -162,6 +168,7 @@ async function expandAgentsSkills(
       out.push({
         from: relPosix,
         to: toRelPosix(root, absTo),
+        mode,
       });
     }
   }
@@ -171,7 +178,11 @@ async function expandAgentsSkills(
 /**
  * 字面量 links（不支持 glob）
  */
-function expandLiteralLinks(root: string, links: LinkMapping[]): LinkMapping[] {
+function expandLiteralLinks(
+  root: string,
+  links: LinkMapping[],
+  defaultMode: LinkMode,
+): LinkMapping[] {
   const out: LinkMapping[] = [];
   for (const [index, link] of links.entries()) {
     const fromAbs = path.resolve(root, link.from);
@@ -184,6 +195,7 @@ function expandLiteralLinks(root: string, links: LinkMapping[]): LinkMapping[] {
     out.push({
       from: toRelPosix(root, fromAbs),
       to: toRelPosix(root, toAbs),
+      mode: link.mode ?? defaultMode,
     });
   }
   return out;
@@ -243,8 +255,15 @@ export async function resolveLinkMappings(
   const all: LinkMapping[] = [];
   const warnings: string[] = [];
 
+  // 全局默认同步方式，规则可单独覆盖
+  const defaultMode: LinkMode = config.mode ?? 'symlink';
+
   for (const rule of config.agentsMarkdown ?? []) {
-    const part = await expandAgentsMarkdown(resolvedRoot, rule);
+    const part = await expandAgentsMarkdown(
+      resolvedRoot,
+      rule,
+      rule.mode ?? defaultMode,
+    );
     if (part.length === 0 && rule.to.length > 0) {
       warnings.push(`agentsMarkdown.from "${rule.from}"`);
     }
@@ -252,7 +271,11 @@ export async function resolveLinkMappings(
   }
 
   for (const rule of config.agentsSkills ?? []) {
-    const part = await expandAgentsSkills(resolvedRoot, rule);
+    const part = await expandAgentsSkills(
+      resolvedRoot,
+      rule,
+      rule.mode ?? defaultMode,
+    );
     if (part.length === 0 && rule.to.length > 0) {
       warnings.push(`agentsSkills.from "${rule.from}"`);
     }
@@ -260,7 +283,7 @@ export async function resolveLinkMappings(
   }
 
   if (config.links?.length) {
-    all.push(...expandLiteralLinks(resolvedRoot, config.links));
+    all.push(...expandLiteralLinks(resolvedRoot, config.links, defaultMode));
   }
 
   const deduped = dedupeMappings(all);

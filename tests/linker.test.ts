@@ -146,7 +146,7 @@ describe('Linker.sync', () => {
     const linker = new Linker(root, config, { autoConfirm: true });
 
     await expect(linker.sync()).rejects.toThrow(
-      '目标目录已存在且不是符号链接，--yes 模式下不会自动删除',
+      '目标目录已存在且不是 skillink 生成的内容，--yes 模式下不会自动删除',
     );
   });
 
@@ -162,7 +162,7 @@ describe('Linker.sync', () => {
     const linker = new Linker(root, config, { autoConfirm: true });
 
     await expect(linker.sync()).rejects.toThrow(
-      '目标目录已存在且不是符号链接，--yes 模式下不会自动删除',
+      '目标目录已存在且不是 skillink 生成的内容，--yes 模式下不会自动删除',
     );
   });
 

@@ -1,8 +1,17 @@
+/**
+ * 同步方式：
+ * - 'symlink'（默认）：创建符号链接，单一数据源，目标默认写入 .gitignore
+ * - 'copy'：复制真实内容到目标，可被 git 提交、且在不跟随 symlink 的环境（Windows / 部分工具）也可用
+ */
+export type LinkMode = 'symlink' | 'copy';
+
 export interface LinkMapping {
   /** 源路径（相对于项目根目录） */
   from: string;
   /** 目标路径（相对于项目根目录） */
   to: string;
+  /** 该条映射的同步方式；省略时回退到全局 mode，再回退 'symlink' */
+  mode?: LinkMode;
 }
 
 /** Linker 仅依赖扁平映射 */
@@ -16,6 +25,8 @@ export interface AgentsMarkdownRule {
   from: string;
   /** 目标路径片段，相对于每个命中文件所在目录 */
   to: string[];
+  /** 该组规则的同步方式；省略时回退到全局 mode */
+  mode?: LinkMode;
 }
 
 /** .agents 等目录：按 glob 匹配目录，目标与每个命中源目录「同级」（在其父目录下） */
@@ -24,9 +35,13 @@ export interface AgentsSkillsRule {
   from: string;
   /** 目标路径片段，相对于每个命中源目录的父目录（与 .agents → .claude 同级） */
   to: string[];
+  /** 该组规则的同步方式；省略时回退到全局 mode */
+  mode?: LinkMode;
 }
 
 export interface SkillinkConfig {
+  /** 全局同步方式，默认 'symlink'；可被每条规则的 mode 覆盖 */
+  mode?: LinkMode;
   /** Agent 文档同步规则（可多组）；省略则不同步此类映射 */
   agentsMarkdown?: AgentsMarkdownRule[];
   /** Skills 目录同步规则（可多组）；省略则不同步此类映射 */
@@ -41,5 +56,12 @@ export interface SkillinkConfig {
 export interface EncryptManifest {
   version: 1;
   /** 曾成功执行 lock 的明文文件路径（相对项目根，POSIX 风格） */
+  files: string[];
+}
+
+/** skillink.copy.json 结构：记录由 copy 模式生成、归 skillink 托管的目标 */
+export interface CopyManifest {
+  version: 1;
+  /** copy 模式生成的目标路径（相对项目根，POSIX 风格） */
   files: string[];
 }
