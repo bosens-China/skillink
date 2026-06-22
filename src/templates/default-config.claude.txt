@@ -1,0 +1,16 @@
+export default {
+  /* 仓库已有 .claude / CLAUDE.md，反向以它们作为源 */
+  agentsMarkdown: [
+    {
+      from: '**/CLAUDE.md',
+      to: ['AGENTS.md'],
+    },
+  ],
+  agentsSkills: [
+    {
+      from: '.claude',
+      to: ['.agents'],
+    },
+  ],
+  encrypt: ['.mcp.json'],
+};

@@ -1,0 +1,32 @@
+/*
+ * skillink 配置文件
+ * 文档与源码：https://github.com/bosens-China/skillink
+ *
+ * 常见使用方式：
+ *   1. 把一份 AGENTS.md 同步成多个工具能识别的文件（CLAUDE.md / GEMINI.md ...）
+ *        agentsMarkdown 的 from 用 glob（** 可匹配任意层级），to 填生成的文件名数组
+ *   2. 把 .agents 目录链接成 .claude / .cursor 等同级目录
+ *        agentsSkills 的 from 填 .agents，to 填 ['.claude', '.cursor']
+ *   3. 在 monorepo 中按 glob 匹配每个子包的 AGENTS.md，各自就地链接
+ *        from 写成 packages 下各子包 AGENTS.md 的 glob，to 填 ['CLAUDE.md']
+ *   4. 任意字面映射（既支持文件也支持目录）
+ *        links 的 from 填 .env.example，to 填 .env.template
+ *   5. 用 npx @boses/skillink lock 把敏感文件加密为 .lock 提交到仓库
+ *        encrypt 填 ['.mcp.json', '.env']
+ *
+ * 同步方式 mode（全局可设，单条规则可覆盖）：
+ *   - symlink（默认）：软链接，单一数据源，目标默认写入 .gitignore
+ *   - copy：复制真实内容到目标，可被 git 提交、在不跟随软链接的环境（Windows 等）也可用
+ *        全局：在 export default 顶层加 mode: 'copy'
+ *        单条：给某条规则对象加 mode: 'copy'
+ *
+ * 让 pnpm/npm 安装后自动同步一次（在你项目的 package.json scripts 中）：
+ *   "postinstall": "npx @boses/skillink --silent"
+ *
+ * 常用命令（未全局安装时用 npx 调用）：
+ *   npx @boses/skillink                同步映射
+ *   npx @boses/skillink --dry-run      仅预览，不写盘
+ *   npx @boses/skillink --yes          全自动确认（CI 推荐）
+ *   npx @boses/skillink --silent       安静模式（postinstall 用：无配置即退出、不交互）
+ *   npx @boses/skillink lock / unlock  加密 / 还原敏感文件
+ */

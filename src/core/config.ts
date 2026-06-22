@@ -1,8 +1,9 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createJiti } from 'jiti';
-import type { SkillinkConfig } from '@/types/index.js';
+import type { LinkMode, SkillinkConfig } from '@/types/index.js';
 
 const CONFIG_FILES = [
   'skillink.config.ts',
@@ -75,79 +76,73 @@ export function detectInit(cwd: string = process.cwd()): InitDetection {
 }
 
 /**
+ * 读取打包的默认配置模板（纯文本，便于维护，无需在代码里转义反引号）。
+ * 同时兼容两种运行位置：
+ * - 源码 / 测试：模板在 src/templates（相对当前文件为 ../templates）
+ * - 打包产物：构建时模板被复制到 dist/templates（相对入口 chunk 为 ./templates 或 ../templates）
+ */
+async function readTemplate(name: string): Promise<string> {
+  const candidates = [
+    new URL(`./templates/${name}`, import.meta.url),
+    new URL(`../templates/${name}`, import.meta.url),
+  ];
+  for (const url of candidates) {
+    const filePath = fileURLToPath(url);
+    if (existsSync(filePath)) {
+      return fs.readFile(filePath, 'utf-8');
+    }
+  }
+  throw new Error(`找不到默认配置模板文件：${name}`);
+}
+
+/**
+ * 决定首次生成配置时的默认同步方式。
+ * - 显式传入（CLI --mode）优先
+ * - 否则：仓库以 .claude 为源（claude-to-agents）时默认 copy，
+ *   因为生成的 AGENTS.md / .agents 通常希望作为真实文件提交、并在不跟随软链接的环境可用
+ * - 其余情况保持 symlink（默认行为不变）
+ */
+export function resolveInitMode(
+  detection: InitDetection,
+  requested?: LinkMode,
+): LinkMode {
+  if (requested) {
+    return requested;
+  }
+  return detection.direction === 'claude-to-agents' ? 'copy' : 'symlink';
+}
+
+/**
  * 创建默认配置文件（首次运行模板）
- * 根据仓库现状自动选择源/目标方向。
+ * 根据仓库现状自动选择源/目标方向，并按需写入同步方式 mode。
  */
 export async function createDefaultConfig(
   cwd: string = process.cwd(),
-): Promise<{ configPath: string; detection: InitDetection }> {
+  requestedMode?: LinkMode,
+): Promise<{ configPath: string; detection: InitDetection; mode: LinkMode }> {
   const detection = detectInit(cwd);
+  const mode = resolveInitMode(detection, requestedMode);
   const configPath = path.join(cwd, 'skillink.config.ts');
 
-  const header = `// skillink 配置文件
-// 文档与源码：https://github.com/bosens-China/skillink
-//
-// 常见使用方式：
-//   1. 把一份 AGENTS.md 同步成多个工具能识别的文件（CLAUDE.md / GEMINI.md ...）
-//        agentsMarkdown: [{ from: '**/AGENTS.md', to: ['CLAUDE.md', 'GEMINI.md'] }]
-//   2. 把 .agents 目录链接成 .claude / .cursor 等同级目录
-//        agentsSkills:   [{ from: '.agents',     to: ['.claude', '.cursor'] }]
-//   3. 在 monorepo 中按 glob 匹配每个子包的 AGENTS.md，各自就地链接
-//        agentsMarkdown: [{ from: 'packages/*/AGENTS.md', to: ['CLAUDE.md'] }]
-//   4. 任意字面映射（既支持文件也支持目录）
-//        links: [{ from: '.env.example', to: '.env.template' }]
-//   5. 用 \`skillink lock\` 把敏感文件加密为 .lock 提交到仓库
-//        encrypt: ['.mcp.json', '.env']
-//
-// 常用命令：
-//   skillink                同步映射
-//   skillink --dry-run      仅预览，不写盘
-//   skillink --yes          全自动确认（CI 推荐）
-//   skillink lock / unlock  加密 / 还原敏感文件
-
-`;
-
-  const body =
+  const header = await readTemplate('default-config.header.txt');
+  let body = await readTemplate(
     detection.direction === 'agents-to-claude'
-      ? `export default {
-  // Agent 文档：glob 匹配（遵守 .gitignore），to 相对于每个 AGENTS.md 所在目录
-  agentsMarkdown: [
-    {
-      from: '**/AGENTS.md',
-      to: ['CLAUDE.md'],
-    },
-  ],
-  // Skills 目录：to 与命中的源目录同级（在其父目录下）
-  agentsSkills: [
-    {
-      from: '.agents',
-      to: ['.claude'],
-    },
-  ],
-  // lock 默认加密列表；unlock 无参且 skillink.encrypt.json 为空时回退此列表
-  encrypt: ['.mcp.json'],
-};
-`
-      : `export default {
-  // 仓库已有 .claude / CLAUDE.md，反向以它们作为源
-  agentsMarkdown: [
-    {
-      from: '**/CLAUDE.md',
-      to: ['AGENTS.md'],
-    },
-  ],
-  agentsSkills: [
-    {
-      from: '.claude',
-      to: ['.agents'],
-    },
-  ],
-  encrypt: ['.mcp.json'],
-};
-`;
-  const content = header + body;
+      ? 'default-config.agents.txt'
+      : 'default-config.claude.txt',
+  );
+
+  // 仅在 copy 时显式写入 mode；symlink 为缺省值，保持模板简洁、默认行为不变
+  if (mode === 'copy') {
+    body = body.replace(
+      'export default {\n',
+      "export default {\n  // 同步方式：复制真实内容，可被 git 提交（改为 'symlink' 即用软链接）\n  mode: 'copy',\n",
+    );
+  }
+
+  // header 与 body 之间留一个空行
+  const content = `${header}\n${body}`;
   await fs.writeFile(configPath, content, 'utf-8');
-  return { configPath, detection };
+  return { configPath, detection, mode };
 }
 
 /**
